@@ -87,12 +87,20 @@ class SocketManager {
       window.webrtcVoiceManager.handleIncomingSignal(data.senderSocketId, data.signal);
     });
 
+    this.socket.on('new_chat_message', (message) => {
+      window.appUI.appendChatMessage(message);
+    });
+
     this.socket.on('receive_chat_message', (message) => {
       window.appUI.appendChatMessage(message);
     });
 
+    this.socket.on('new_reaction', (data) => {
+      window.appUI.showFloatingReaction(data.emoji, data.user?.username || data.username);
+    });
+
     this.socket.on('receive_reaction', (data) => {
-      window.appUI.showFloatingReaction(data.emoji, data.username);
+      window.appUI.showFloatingReaction(data.emoji, data.user?.username || data.username);
     });
 
     this.socket.on('error_message', (data) => {

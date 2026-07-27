@@ -322,7 +322,16 @@ class RoomManager {
   }
 
   getUsersList(room) {
+    if (!room || !room.users) return [];
     return Array.from(room.users.values());
+  }
+
+  getVoiceMembersList(room) {
+    if (!room || !room.voiceUsers) return [];
+    return Array.from(room.voiceUsers).map(socketId => {
+      const u = room.users.get(socketId);
+      return u ? { socketId: u.socketId, username: u.username, avatar: u.avatar, isMuted: u.isMuted, isSpeaking: u.isSpeaking } : null;
+    }).filter(Boolean);
   }
 }
 
