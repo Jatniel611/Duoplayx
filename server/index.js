@@ -13,6 +13,8 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -297,7 +299,8 @@ async function extractHlsFromEmbed(embedUrl) {
 
 // Endpoint de resolución universal de medios
 app.post('/api/resolve-media', async (req, res) => {
-  const { url } = req.body;
+  const body = req.body || {};
+  const url = body.url;
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
   try {
