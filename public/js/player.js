@@ -102,41 +102,80 @@ class PlayerManager {
   // ─── YouTube IFrame Player ────────────────────────────────────────────────
   _initYouTubePlayer(videoId) {
     return new Promise((resolve) => {
-      if (this.ytPlayer) {
-        this.ytPlayer.loadVideoById({
-          videoId,
-          suggestedQuality: this._ytQuality(this.selectedQuality)
-        });
-        return resolve(this.ytPlayer);
-      }
-      const doCreate = () => {
-        this.ytPlayer = new YT.Player('ytPlayer', {
-          height: '100%', width: '100%', videoId,
-          playerVars: { autoplay: 1, controls: 0, disablekb: 1, modestbranding: 1, rel: 0, fs: 0 },
-          events: {
-            onReady: () => {
-              this.isYTReady = true;
-              this.setLocalVolume(this.localVolume);
-              this.showLoadingOverlay(false);
-              resolve(this.ytPlayer);
-            },
-            onStateChange: (e) => {
-              if (e.data === YT.PlayerState.BUFFERING) {
-                this.showLoadingOverlay(true, 'Cargando YouTube...');
-              } else if (e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.PAUSED) {
-                this.showLoadingOverlay(false);
-              }
-
-              if (this.isProgrammaticAction || !window.socketManager?.isHost || !this.onLocalActionCallback) return;
-              const t = this.ytPlayer.getCurrentTime();
-              if (e.data === YT.PlayerState.PLAYING) this.onLocalActionCallback('play', t);
-              else if (e.data === YT.PlayerState.PAUSED) this.onLocalActionCallback('pause', t);
-            }
-          }
-        });
+      let isResolved = false;
+      const safeResolve = () => {
+        if (!isResolved) {
+          isResolved = true;
+          resolve(this.ytPlayer);
+        }
       };
-      if (typeof YT !== 'undefined' && YT.Player) doCreate();
-      else window.onYouTubeIframeAPIReady = doCreate;
+
+      const timer = setTimeout(() => {
+        console.warn('⚠️ YouTube Iframe API tardó demasiado. Continuando...');
+        safeResolve();
+      }, 4000);
+
+      if (this.ytPlayer && typeof this.ytPlayer.loadVideoById === 'function') {
+        try {
+          this.ytPlayer.loadVideoById({
+            videoId,
+            suggestedQuality: this._ytQuality(this.selectedQuality)
+          });
+        } catch (e) {
+          console.warn('Error al cargar video de YouTube:', e);
+        }
+        clearTimeout(timer);
+        return safeResolve();
+      }
+
+      const doCreate = () => {
+        try {
+          this.ytPlayer = new YT.Player('ytPlayer', {
+            height: '100%', width: '100%', videoId,
+            playerVars: { autoplay: 1, controls: 0, disablekb: 1, modestbranding: 1, rel: 0, fs: 0 },
+            events: {
+              onReady: () => {
+                this.isYTReady = true;
+                this.setLocalVolume(this.localVolume);
+                this.showLoadingOverlay(false);
+                clearTimeout(timer);
+                safeResolve();
+              },
+              onStateChange: (e) => {
+                if (e.data === YT.PlayerState.BUFFERING) {
+                  this.showLoadingOverlay(true, 'Cargando YouTube...');
+                } else if (e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.PAUSED) {
+                  this.showLoadingOverlay(false);
+                }
+
+                if (this.isProgrammaticAction || !window.socketManager?.isHost || !this.onLocalActionCallback) return;
+                const t = (this.ytPlayer && typeof this.ytPlayer.getCurrentTime === 'function') ? this.ytPlayer.getCurrentTime() : 0;
+                if (e.data === YT.PlayerState.PLAYING) this.onLocalActionCallback('play', t);
+                else if (e.data === YT.PlayerState.PAUSED) this.onLocalActionCallback('pause', t);
+              },
+              onError: (err) => {
+                console.warn('YouTube Error:', err);
+                clearTimeout(timer);
+                safeResolve();
+              }
+            }
+          });
+        } catch (err) {
+          console.error('Error al instanciar YT.Player:', err);
+          clearTimeout(timer);
+          safeResolve();
+        }
+      };
+
+      if (typeof YT !== 'undefined' && YT.Player) {
+        doCreate();
+      } else {
+        const prevHandler = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = () => {
+          if (prevHandler) prevHandler();
+          doCreate();
+        };
+      }
     });
   }
 

@@ -248,12 +248,18 @@ class AppUI {
     // Crear Sala DuoPlayX
     this.btnCreateRoom.addEventListener('click', async () => {
       const username = this.inputUsername.value.trim() || 'Invitado';
+      this.btnCreateRoom.disabled = true;
+      this.btnCreateRoom.innerHTML = '<span>⚡ Creando sala...</span>';
       try {
         const roomData = await window.socketManager.createRoom(username, this.selectedAvatar);
         this.enterRoom(roomData);
         this.showToast('¡Bienvenido a DuoPlayX! Eres el Host (👑) y tienes el control exclusivo.', 'success');
       } catch (err) {
-        this.showToast(err, 'danger');
+        console.error('Error al crear sala:', err);
+        this.showToast(typeof err === 'string' ? err : 'Error al conectar con el servidor. Reintenta.', 'danger');
+      } finally {
+        this.btnCreateRoom.disabled = false;
+        this.btnCreateRoom.innerHTML = '<span>✨ Crear Sala (Como Host 👑)</span>';
       }
     });
 
@@ -263,12 +269,18 @@ class AppUI {
       const code = this.inputRoomCode.value.trim();
       if (!code) return this.showToast('Introduce un código de sala.', 'warning');
 
+      this.btnJoinRoom.disabled = true;
+      this.btnJoinRoom.innerText = 'Uniendo...';
       try {
         const roomData = await window.socketManager.joinRoom(code, username, this.selectedAvatar);
         this.enterRoom(roomData);
         this.showToast(`Unido a la sala ${roomData.roomId}`, 'success');
       } catch (err) {
-        this.showToast(err, 'danger');
+        console.error('Error al unirse a sala:', err);
+        this.showToast(typeof err === 'string' ? err : 'No se pudo unirse a la sala.', 'danger');
+      } finally {
+        this.btnJoinRoom.disabled = false;
+        this.btnJoinRoom.innerText = 'Unirme';
       }
     });
 
@@ -912,22 +924,27 @@ class AppUI {
   }
 
   enterRoom(roomData) {
-    this.currentRoom = roomData;
-    this.modalLobby.style.display = 'none';
-
-    if (window.innerWidth <= 768) {
-      this.mainRoom.style.display = 'flex';
-      this.mobileNavBar.style.display = 'flex';
-      this.setActiveMobileTab('player');
-    } else {
-      this.mainRoom.style.display = 'grid';
+    if (!roomData || !roomData.roomId) {
+      return this.showToast('Error al recibir información de la sala.', 'danger');
     }
 
-    this.headerRoomInfo.style.display = 'flex';
+    this.currentRoom = roomData;
+    if (this.modalLobby) this.modalLobby.style.display = 'none';
 
-    this.displayRoomCode.innerText = roomData.roomId;
-    this.headerUserAvatar.innerText = roomData.user.avatar;
-    this.headerUserName.innerText = roomData.user.username;
+    if (this.mainRoom) {
+      if (window.innerWidth <= 768) {
+        this.mainRoom.style.display = 'flex';
+        if (this.mobileNavBar) this.mobileNavBar.style.display = 'flex';
+        this.setActiveMobileTab('player');
+      } else {
+        this.mainRoom.style.display = 'grid';
+      }
+    }
+
+    if (this.headerRoomInfo) this.headerRoomInfo.style.display = 'flex';
+    if (this.displayRoomCode) this.displayRoomCode.innerText = roomData.roomId;
+    if (this.headerUserAvatar && roomData.user) this.headerUserAvatar.innerText = roomData.user.avatar || '⚡';
+    if (this.headerUserName && roomData.user) this.headerUserName.innerText = roomData.user.username || 'Invitado';
 
     const serverOrigin = window.location.origin;
     const elShortcode = document.getElementById('codeShortcode');
@@ -938,20 +955,28 @@ class AppUI {
 
     if (roomData.media) {
       window.playerManager.setMediaSource(roomData.media).then(() => {
-        const initialTime = roomData.mediaState.calculatedTime || roomData.mediaState.currentTime || 0;
-        window.playerManager.syncRemoteAction('sync', initialTime, roomData.mediaState.isPlaying);
+        const initialTime = roomData.mediaState ? (roomData.mediaState.calculatedTime || roomData.mediaState.currentTime || 0) : 0;
+        const isPlaying = roomData.mediaState ? !!roomData.mediaState.isPlaying : false;
+        window.playerManager.syncRemoteAction('sync', initialTime, isPlaying);
+      }).catch(err => {
+        console.warn('Error al configurar media inicial:', err);
       });
     }
 
-    this.chatMessages.innerHTML = '<div class="chat-welcome-notice"><span>✨ ¡Bienvenidos a DuoPlayX! Chatea, busca GIFs, envía Emojis y entra a la Sala de Voz en Vivo.</span></div>';
+    if (this.chatMessages) {
+      this.chatMessages.innerHTML = '<div class="chat-welcome-notice"><span>✨ ¡Bienvenidos a DuoPlayX! Chatea, busca GIFs, envía Emojis y entra a la Sala de Voz en Vivo.</span></div>';
+    }
     if (this.floatingChatMessages) this.floatingChatMessages.innerHTML = '';
     if (roomData.chatHistory) {
       roomData.chatHistory.forEach(msg => this.appendChatMessage(msg));
     }
 
-    this.updateUsersList(roomData.users);
-    this.updateVoiceRoomState(roomData.voiceMembers || [], roomData.users);
-    this.updateHostControlsView(roomData.user.isHost);
+    this.updateUsersList(roomData.users || []);
+    this.updateVoiceRoomState(roomData.voiceMembers || [], roomData.users || []);
+    if (roomData.user) this.updateHostControlsView(roomData.user.isHost);
+
+    // Ajustar vista
+    window.dispatchEvent(new Event('resize'));
   }
 
   toggleFloatingChatOverlay(forceState) {
