@@ -52,6 +52,13 @@ class PlayerManager {
     videoEl.addEventListener('playing',   () => this.showLoadingOverlay(false));
     videoEl.addEventListener('seeked',    () => this.showLoadingOverlay(false));
 
+    videoEl.addEventListener('timeupdate', () => {
+      if (window.appUI) {
+        const dur = isNaN(videoEl.duration) ? 0 : videoEl.duration;
+        window.appUI.updateSliderProgress(videoEl.currentTime || 0, dur);
+      }
+    });
+
     videoEl.addEventListener('play', () => {
       this.showLoadingOverlay(false);
       if (this.isProgrammaticAction || !window.socketManager?.isHost) return;

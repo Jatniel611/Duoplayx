@@ -1,5 +1,5 @@
 /**
- * WebRTCVoiceManager - Sistema de Sala de Voz en Vivo Estilo Rave para DuoPlayX
+ * WebRTCVoiceManager - Sistema de Sala de Voz en Vivo DuoPlayX para DuoPlayX
  * 
  * 1. Todos los usuarios que entran a la sala escuchan automáticamente el canal de voz.
  * 2. Cero botones de "Unirse a la sala de voz".

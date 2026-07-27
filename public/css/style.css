@@ -480,7 +480,7 @@ body.dark-theme {
   letter-spacing: 0.5px;
 }
 
-/* BURBUJA Y OVERLAY DE CHAT FLOTANTE ESTILO RAVE (SOBRE EL VIDEO) */
+/* BURBUJA Y OVERLAY DE CHAT FLOTANTE DUOPLAYX (SOBRE EL VIDEO) */
 .floating-chat-bubble {
   position: absolute;
   bottom: 16px;
@@ -925,7 +925,7 @@ body.dark-theme {
   .stage-fullscreen-btn span { display: none; }
 }
 
-/* SELECTOR DE MICRÓFONOS Y ILUMINACIÓN VERDE DE HABLA ESTILO RAVE */
+/* SELECTOR DE MICRÓFONOS Y ILUMINACIÓN VERDE DE HABLA EN VIVO */
 .mic-select-row {
   display: flex;
   align-items: center;
@@ -956,11 +956,11 @@ body.dark-theme {
   cursor: pointer;
 }
 
-/* ANIMACIÓN NEÓN VERDE RAVE CUANDO ALGUIEN HABLA */
+/* ANIMACIÓN NEÓN VERDE CUANDO ALGUIEN HABLA */
 .user-speaking, .voice-member-card.speaking, .user-card.speaking {
   border: 2px solid #00ff88 !important;
   box-shadow: 0 0 16px rgba(0, 255, 136, 0.85), inset 0 0 10px rgba(0, 255, 136, 0.4) !important;
-  animation: raveSpeakingPulse 1.2s infinite alternate !important;
+  animation: duoSpeakingPulse 1.2s infinite alternate !important;
 }
 
 .user-speaking .user-name, .voice-member-card.speaking .voice-member-name {
@@ -973,7 +973,7 @@ body.dark-theme {
   border: 2px solid #00ff88 !important;
 }
 
-@keyframes raveSpeakingPulse {
+@keyframes duoSpeakingPulse {
   0% {
     box-shadow: 0 0 8px rgba(0, 255, 136, 0.6), inset 0 0 5px rgba(0, 255, 136, 0.2);
     transform: scale(1.0);

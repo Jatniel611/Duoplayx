@@ -1,6 +1,6 @@
 /**
  * AppUI - Controlador de Interfaz DuoPlayX
- * Sincronización Automática Sin Restricciones de Autoplay (Estilo Rave)
+ * Sincronización Automática Sin Restricciones de Autoplay (DuoPlayX)
  */
 
 class AppUI {
@@ -114,7 +114,7 @@ class AppUI {
     this.btnCopyInvite = document.getElementById('btnCopyInvite');
     this.btnResync = document.getElementById('btnResync');
 
-    // DESBLOQUEO DE AUTOPLAY ESTILO RAVE
+    // DESBLOQUEO DE AUTOPLAY DuoPlayX
     this.videoAutoplayOverlay = document.getElementById('videoAutoplayOverlay');
     this.btnUnlockVideoAutoplay = document.getElementById('btnUnlockVideoAutoplay');
 
@@ -128,7 +128,7 @@ class AppUI {
     this.btnToggleFullscreen = document.getElementById('btnToggleFullscreen');
     this.playerStage = document.getElementById('playerStage');
 
-    // SALA DE VOZ DEDICADA ESTILO RAVE
+    // SALA DE VOZ DEDICADA DuoPlayX
     this.voiceMembersGrid = document.getElementById('voiceMembersGrid');
     this.btnToggleMic = document.getElementById('btnToggleMic');
     this.voiceMicStateIcon = document.getElementById('voiceMicStateIcon');
@@ -177,7 +177,7 @@ class AppUI {
     this.reactionOverlay = document.getElementById('reactionOverlay');
     this.toastContainer = document.getElementById('toastContainer');
 
-    // MÓVIL & CHAT FLOTANTE (Estilo Rave)
+    // MÓVIL & CHAT FLOTANTE (DuoPlayX)
     this.mobileNavBar = document.getElementById('mobileNavBar');
     this.sectionPlayer = document.getElementById('sectionPlayer');
     this.sectionSidebar = document.getElementById('sectionSidebar');
@@ -194,7 +194,7 @@ class AppUI {
     this.chatUnreadBadge = document.getElementById('chatUnreadBadge');
     this.unreadChatCount = 0;
 
-    // BARRA COMPACTA DE VOZ MÓVIL ESTILO RAVE
+    // BARRA COMPACTA DE VOZ MÓVIL DuoPlayX
     this.mobileVoiceStrip = document.getElementById('mobileVoiceStrip');
     this.mobileVoiceCount = document.getElementById('mobileVoiceCount');
     this.mobileVoiceAvatars = document.getElementById('mobileVoiceAvatars');
@@ -227,7 +227,7 @@ class AppUI {
       });
     });
 
-    // CAPA DE DESBLOQUEO DE AUTOPLAY ESTILO RAVE
+    // CAPA DE DESBLOQUEO DE AUTOPLAY DuoPlayX
     if (this.videoAutoplayOverlay) {
       this.videoAutoplayOverlay.addEventListener('click', () => {
         this.unlockVideoExperience();
@@ -299,14 +299,19 @@ class AppUI {
       }
 
       // 2. Extracción de servidores Embed (vimeus.com, vimeos.net, etc.) vía backend
-      this.showToast('🔍 Extrayendo fuente HLS del servidor de película...', 'info');
+      this.showToast('🔍 Extrayendo fuente de película del servidor...', 'info');
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       try {
         const res = await fetch('/api/resolve-media', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: rawUrl })
+          body: JSON.stringify({ url: rawUrl }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (!res.ok) {
           throw new Error(`HTTP Error ${res.status}`);
@@ -321,7 +326,8 @@ class AppUI {
         await window.socketManager.emitChangeMedia(mediaData || { type: 'mp4', url: rawUrl });
         this.inputMediaUrl.value = '';
       } catch (err) {
-        console.warn('Extracción de servidor no disponible, cargando como URL directa:', err.message);
+        clearTimeout(timeoutId);
+        console.warn('Extracción de servidor diferida, cargando como fuente directa:', err.message);
         await window.socketManager.emitChangeMedia({ type: 'mp4', url: rawUrl });
         this.inputMediaUrl.value = '';
       }
@@ -463,7 +469,7 @@ class AppUI {
       }
     });
 
-    // CHAT FLOTANTE SOBRE EL VIDEO (Estilo Rave)
+    // CHAT FLOTANTE SOBRE EL VIDEO (DuoPlayX)
     if (this.btnFloatingChatBubble) {
       this.btnFloatingChatBubble.addEventListener('click', () => this.toggleFloatingChatOverlay());
     }
@@ -607,7 +613,7 @@ class AppUI {
       this.togglePlayPauseSVG(action === 'play');
     };
 
-    // Control de micrófono unificado estilo Rave
+    // Control de micrófono unificado DuoPlayX
     if (this.btnToggleMic) {
       this.btnToggleMic.addEventListener('click', async () => {
         const micId = this.selectMicDevice ? this.selectMicDevice.value : null;
@@ -1019,7 +1025,7 @@ class AppUI {
     this.updateVoiceRoomState(roomData.voiceMembers || [], roomData.users || []);
     if (roomData.user) this.updateHostControlsView(roomData.user.isHost);
 
-    // Unirse automáticamente al canal de voz estilo Rave & cargar lista de micrófonos
+    // Unirse automáticamente al canal de voz DuoPlayX & cargar lista de micrófonos
     window.webrtcVoiceManager.joinVoiceRoom();
     if (this.selectMicDevice) {
       window.webrtcVoiceManager.populateMicrophones(this.selectMicDevice);
@@ -1224,9 +1230,20 @@ class AppUI {
   }
 
   formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    if (!seconds || isNaN(seconds) || seconds < 0) return '00m 00s';
+    const totalSecs = Math.floor(seconds);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+
+    const padSecs = secs < 10 ? `0${secs}` : `${secs}`;
+    const padMins = mins < 10 ? `0${mins}` : `${mins}`;
+
+    if (hrs > 0) {
+      return `${hrs}h ${padMins}m ${padSecs}s`;
+    } else {
+      return `${padMins}m ${padSecs}s`;
+    }
   }
 
   triggerFloatingReaction(emoji) {
