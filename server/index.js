@@ -206,14 +206,35 @@ app.get('/api/gdrive-stream/:fileId', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EXTRACTOR DE HLS / M3U8 Y PROXY DE STREAMING PARA VIMEUS / VIMEOS / PIXELDRAIN
+// EXTRACTOR SEGURIZADO DE HLS / M3U8 Y PROXY DE STREAMING
 // ─────────────────────────────────────────────────────────────────────────────
+
+async function safeFetchHtml(targetUrl, referer) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+    const domain = new URL(targetUrl).origin;
+    const reqHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Referer': referer || domain,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+    };
+
+    const res = await fetch(targetUrl, { headers: reqHeaders, signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) return '';
+    return await res.text();
+  } catch (err) {
+    console.warn(`[SafeFetch Warning] ${targetUrl}:`, err.message);
+    return '';
+  }
+}
 
 async function extractHlsFromEmbed(embedUrl) {
   try {
     let targetUrl = embedUrl.trim();
 
-    // Pixeldrain /u/ID a /api/file/ID
     if (targetUrl.includes('pixeldrain.com/u/')) {
       const fileId = targetUrl.split('pixeldrain.com/u/')[1].split('/')[0].split('?')[0];
       return { type: 'mp4', url: `https://pixeldrain.com/api/file/${fileId}` };
@@ -226,14 +247,10 @@ async function extractHlsFromEmbed(embedUrl) {
     const u = new URL(targetUrl);
     const domain = `${u.protocol}//${u.hostname}`;
 
-    const reqHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Referer': domain,
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-    };
-
-    const driveRes = await makeHttpsRequest(targetUrl, reqHeaders);
-    const html = await readBody(driveRes);
+    const html = await safeFetchHtml(targetUrl, domain);
+    if (!html) {
+      return { type: 'mp4', url: targetUrl };
+    }
 
     // A. Coincidencia directa .m3u8
     const m3u8Match = html.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.m3u8[^"'`\s>]*)/i);
@@ -260,7 +277,13 @@ async function extractHlsFromEmbed(embedUrl) {
       else if (iframeSrc.startsWith('/')) iframeSrc = domain + iframeSrc;
 
       if (iframeSrc !== targetUrl) {
-        return await extractHlsFromEmbed(iframeSrc);
+        const innerHtml = await safeFetchHtml(iframeSrc, targetUrl);
+        const innerM3u8 = innerHtml.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.m3u8[^"'`\s>]*)/i) ||
+                          innerHtml.match(/file:\s*["']([^"']+\.m3u8[^"']*)["']/i);
+        if (innerM3u8) {
+          let hlsUrl = innerM3u8[1].replace(/\\/g, '');
+          return { type: 'hls', url: hlsUrl, referer: iframeSrc };
+        }
       }
     }
 
@@ -288,14 +311,14 @@ app.post('/api/resolve-media', async (req, res) => {
       }
     }
 
-    // 2. YouTube (incluye videoId obligatorio)
+    // 2. YouTube
     if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
       const ytMatch = cleanUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
       const videoId = ytMatch ? ytMatch[1] : null;
       return res.json({ type: 'youtube', url: cleanUrl, videoId: videoId });
     }
 
-    // 3. Pixeldrain (convertir /u/ID a /api/file/ID)
+    // 3. Pixeldrain
     if (cleanUrl.includes('pixeldrain.com')) {
       if (cleanUrl.includes('/u/')) {
         const fileId = cleanUrl.split('/u/')[1].split('/')[0].split('?')[0];
@@ -309,19 +332,14 @@ app.post('/api/resolve-media', async (req, res) => {
       return res.json({ type: 'hls', url: cleanUrl });
     }
 
-    // 5. Archivos de video MP4/MKV/WEBM directos
+    // 5. Video directo
     if (cleanUrl.match(/\.(mp4|mkv|webm|ogv|mov)(\?.*)?$/i)) {
       return res.json({ type: 'mp4', url: cleanUrl });
     }
 
-    // 6. Extractor HLS específico para sitios embed (vimeus.com, vimeos.net, /embed, etc.)
-    if (cleanUrl.includes('vimeus.com') || cleanUrl.includes('vimeos.net') || cleanUrl.includes('/embed') || cleanUrl.includes('/e/')) {
-      const resolved = await extractHlsFromEmbed(cleanUrl);
-      return res.json(resolved);
-    }
-
-    // Fallback genérico: MP4
-    return res.json({ type: 'mp4', url: cleanUrl });
+    // 6. Extractor HLS específico para sitios embed
+    const resolved = await extractHlsFromEmbed(cleanUrl);
+    return res.json(resolved);
 
   } catch (err) {
     console.error('[Resolve Media Error]:', err.message);

@@ -274,35 +274,85 @@ class AppUI {
         return this.showToast('⛔ Solo el Host (👑) puede cambiar la película.', 'warning');
       }
 
-      const url = this.inputMediaUrl.value.trim();
-      if (!url) return this.showToast('Ingresa una URL válida de YouTube, Google Drive, Pixeldrain o Servidor Embed.', 'warning');
+      const rawUrl = this.inputMediaUrl.value.trim();
+      if (!rawUrl) return this.showToast('Ingresa una URL válida de YouTube, Google Drive, Pixeldrain o Servidor Embed.', 'warning');
 
-      this.showToast('🔍 Extrayendo fuente de video / HLS...', 'info');
+      // 1. Detección instantánea sin delay ni peticiones de red para YouTube, Drive, Pixeldrain y MP4 directos
+      const fastMedia = this.quickParseMedia(rawUrl);
+      if (fastMedia) {
+        console.log('[FastParse] Medio detectado de forma instantánea:', fastMedia);
+        await window.socketManager.emitChangeMedia(fastMedia);
+        this.inputMediaUrl.value = '';
+        return;
+      }
+
+      // 2. Extracción de servidores Embed (vimeus.com, vimeos.net, etc.) vía backend
+      this.showToast('🔍 Extrayendo fuente HLS del servidor de película...', 'info');
 
       try {
         const res = await fetch('/api/resolve-media', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
+          body: JSON.stringify({ url: rawUrl })
         });
+
+        if (!res.ok) {
+          throw new Error(`HTTP Error ${res.status}`);
+        }
+
         const mediaData = await res.json();
 
         if (mediaData && mediaData.error) {
           return this.showToast(mediaData.error, 'danger');
         }
 
-        await window.socketManager.emitChangeMedia(mediaData || url);
+        await window.socketManager.emitChangeMedia(mediaData || { type: 'mp4', url: rawUrl });
         this.inputMediaUrl.value = '';
       } catch (err) {
-        console.error('Error al resolver fuente de video:', err);
-        try {
-          await window.socketManager.emitChangeMedia(url);
-          this.inputMediaUrl.value = '';
-        } catch (e) {
-          this.showToast(e, 'danger');
-        }
+        console.warn('Extracción de servidor no disponible, cargando como URL directa:', err.message);
+        await window.socketManager.emitChangeMedia({ type: 'mp4', url: rawUrl });
+        this.inputMediaUrl.value = '';
       }
     });
+
+  quickParseMedia(url) {
+    if (!url || typeof url !== 'string') return null;
+    url = url.trim();
+
+    // 1. YouTube
+    const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+    if (ytMatch && ytMatch[1]) {
+      return { type: 'youtube', url: url, videoId: ytMatch[1] };
+    }
+
+    // 2. Google Drive
+    const gdriveMatch = url.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/);
+    if (gdriveMatch && gdriveMatch[1]) {
+      const fileId = gdriveMatch[1];
+      return { type: 'gdrive', url: `/api/gdrive-stream/${fileId}`, fileId: fileId, isGDrive: true };
+    }
+
+    // 3. Pixeldrain
+    if (url.includes('pixeldrain.com')) {
+      if (url.includes('/u/')) {
+        const fileId = url.split('/u/')[1].split('/')[0].split('?')[0];
+        url = `https://pixeldrain.com/api/file/${fileId}`;
+      }
+      return { type: 'mp4', url: url };
+    }
+
+    // 4. Enlaces .m3u8 directos
+    if (url.includes('.m3u8')) {
+      return { type: 'hls', url: url };
+    }
+
+    // 5. Archivos de video directo (.mp4, .mkv, .webm, .mov, etc.)
+    if (url.match(/\.(mp4|mkv|webm|ogv|mov|m4v|avi)(\?.*)?$/i)) {
+      return { type: 'mp4', url: url };
+    }
+
+    return null;
+  }
 
     // SELECTOR DE CALIDAD DE VIDEO
     this.selectVideoQuality.addEventListener('change', (e) => {
