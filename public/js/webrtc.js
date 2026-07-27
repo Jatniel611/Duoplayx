@@ -287,11 +287,11 @@ class WebRTCVoiceManager {
           window.socketManager.sendSpeakingState(isSpeaking, false);
         }
 
-        if (window.appUI) {
+        if (window.appUI && isSpeaking !== lastSpeaking) {
           window.appUI.setUserSpeakingIndicator(window.socketManager.socket.id, isSpeaking);
         }
 
-        requestAnimationFrame(checkVolume);
+        setTimeout(checkVolume, 100);
       };
 
       checkVolume();

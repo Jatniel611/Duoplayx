@@ -182,11 +182,15 @@ body.dark-theme {
   padding: 10px 16px; font-size: 0.85rem; color: #f472b6; background: rgba(236, 72, 153, 0.12); border: 1px solid rgba(236, 72, 153, 0.35);
 }
 
-/* Stage Reproductor Estilo Cyber Neon */
 .netflix-stage {
   position: relative; width: 100%; flex: 1; min-height: 380px;
   background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;
   border: 1px solid rgba(255, 0, 127, 0.45); box-shadow: 0 0 45px rgba(0, 0, 0, 0.95), inset 0 0 25px rgba(255, 0, 127, 0.25);
+  transform: translateZ(0); will-change: transform; backface-visibility: hidden;
+}
+
+.video-wrapper video, .video-wrapper iframe {
+  transform: translateZ(0); will-change: transform; backface-visibility: hidden;
 }
 
 .guest-player-lock-overlay {
