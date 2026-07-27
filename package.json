@@ -1,0 +1,39 @@
+{
+  "name": "rave-watch-party",
+  "version": "1.0.0",
+  "description": "Plataforma de Watch Party en tiempo real sincronizada estilo Rave para YouTube y MP4 directos",
+  "main": "server/index.js",
+  "bin": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "build:exe": "node build-exe.js"
+  },
+  "keywords": [
+    "watch-party",
+    "rave",
+    "youtube-sync",
+    "mp4-sync",
+    "socket.io",
+    "wordpress"
+  ],
+  "author": "Antigravity AI",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^5.12.0"
+  },
+  "pkg": {
+    "scripts": "server/**/*.js",
+    "assets": "public/**/*",
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  }
+}
