@@ -205,6 +205,14 @@ class AppUI {
     this.mobileMicIcon = document.getElementById('mobileMicIcon');
     this.mobileMicLabel = document.getElementById('mobileMicLabel');
 
+    // MODAL DE CREAR / CAMBIAR DE SALA
+    this.btnOpenSwitchRoomModal = document.getElementById('btnOpenSwitchRoomModal');
+    this.modalSwitchRoom = document.getElementById('modalSwitchRoom');
+    this.btnCloseSwitchRoomModal = document.getElementById('btnCloseSwitchRoomModal');
+    this.btnModalCreateRoom = document.getElementById('btnModalCreateRoom');
+    this.inputModalRoomCode = document.getElementById('inputModalRoomCode');
+    this.btnModalJoinRoom = document.getElementById('btnModalJoinRoom');
+
     // CONTROL DE INACTIVIDAD & PANTALLA COMPLETA
     this.syncStatusBadge = document.getElementById('syncStatusBadge');
     this.stageFullscreenBtn = document.getElementById('btnToggleFullscreen');
@@ -282,6 +290,62 @@ class AppUI {
         this.btnJoinRoom.innerText = 'Unirme';
       }
     });
+
+    // MODAL DE CREAR / CAMBIAR DE SALA EN CUALQUIER MOMENTO
+    if (this.btnOpenSwitchRoomModal) {
+      this.btnOpenSwitchRoomModal.addEventListener('click', () => {
+        if (this.modalSwitchRoom) this.modalSwitchRoom.style.display = 'flex';
+      });
+    }
+
+    if (this.btnCloseSwitchRoomModal) {
+      this.btnCloseSwitchRoomModal.addEventListener('click', () => {
+        if (this.modalSwitchRoom) this.modalSwitchRoom.style.display = 'none';
+      });
+    }
+
+    if (this.btnModalCreateRoom) {
+      this.btnModalCreateRoom.addEventListener('click', async () => {
+        const username = this.inputUsername ? (this.inputUsername.value.trim() || 'Invitado') : 'Invitado';
+        this.btnModalCreateRoom.disabled = true;
+        this.btnModalCreateRoom.innerHTML = '<span>⚡ Creando sala...</span>';
+        try {
+          const roomData = await window.socketManager.createRoom(username, this.selectedAvatar);
+          this.enterRoom(roomData);
+          if (this.modalSwitchRoom) this.modalSwitchRoom.style.display = 'none';
+          this.showToast('¡Nueva sala creada con éxito! Eres el Host (👑).', 'success');
+        } catch (err) {
+          console.error('Error al crear sala desde modal:', err);
+          this.showToast(typeof err === 'string' ? err : 'Error al crear la sala.', 'danger');
+        } finally {
+          this.btnModalCreateRoom.disabled = false;
+          this.btnModalCreateRoom.innerHTML = '<span>✨ Crear Nueva Sala (Host 👑)</span>';
+        }
+      });
+    }
+
+    if (this.btnModalJoinRoom) {
+      this.btnModalJoinRoom.addEventListener('click', async () => {
+        const username = this.inputUsername ? (this.inputUsername.value.trim() || 'Invitado') : 'Invitado';
+        const code = this.inputModalRoomCode ? this.inputModalRoomCode.value.trim() : '';
+        if (!code) return this.showToast('Introduce un código de sala.', 'warning');
+
+        this.btnModalJoinRoom.disabled = true;
+        this.btnModalJoinRoom.innerText = 'Uniendo...';
+        try {
+          const roomData = await window.socketManager.joinRoom(code, username, this.selectedAvatar);
+          this.enterRoom(roomData);
+          if (this.modalSwitchRoom) this.modalSwitchRoom.style.display = 'none';
+          this.showToast(`¡Unido con éxito a la sala ${roomData.roomId}!`, 'success');
+        } catch (err) {
+          console.error('Error al unirse a sala desde modal:', err);
+          this.showToast(typeof err === 'string' ? err : 'No se pudo unirse a la sala.', 'danger');
+        } finally {
+          this.btnModalJoinRoom.disabled = false;
+          this.btnModalJoinRoom.innerText = 'Unirme';
+        }
+      });
+    }
 
     // Cambiar Video (Solo Host)
     this.btnChangeMedia.addEventListener('click', async () => {

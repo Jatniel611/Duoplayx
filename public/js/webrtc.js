@@ -325,25 +325,11 @@ class WebRTCVoiceManager {
     }
 
     pc.ontrack = (event) => {
-      console.log(`🔊 Pista de voz recibida de ${targetSocketId}`);
-      let audioEl = document.getElementById(`audio_peer_${targetSocketId}`);
-      if (!audioEl) {
-        audioEl = document.createElement('audio');
-        audioEl.id = `audio_peer_${targetSocketId}`;
-        audioEl.autoplay = true;
-        audioEl.playsInline = true;
-        document.body.appendChild(audioEl);
-      }
-
       if (event.streams && event.streams[0]) {
-        audioEl.srcObject = event.streams[0];
+        this.attachRemoteStream(targetSocketId, event.streams[0]);
       } else if (event.track) {
-        audioEl.srcObject = new MediaStream([event.track]);
+        this.attachRemoteStream(targetSocketId, event.track);
       }
-
-      audioEl.muted = false;
-      audioEl.volume = 1.0;
-      audioEl.play().catch(e => console.warn('Autoplay audio blocked:', e));
     };
 
     pc.onicecandidate = (event) => {
@@ -365,6 +351,45 @@ class WebRTCVoiceManager {
     return pc;
   }
 
+  attachRemoteStream(targetSocketId, streamOrTrack) {
+    if (!targetSocketId || !streamOrTrack) return;
+    console.log(`🔊 Vinculando y reproduciendo audio de ${targetSocketId}`);
+    let audioEl = document.getElementById(`audio_peer_${targetSocketId}`);
+    if (!audioEl) {
+      audioEl = document.createElement('audio');
+      audioEl.id = `audio_peer_${targetSocketId}`;
+      audioEl.autoplay = true;
+      audioEl.playsInline = true;
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
+    }
+
+    if (streamOrTrack instanceof MediaStream) {
+      audioEl.srcObject = streamOrTrack;
+    } else if (streamOrTrack.kind === 'audio' || streamOrTrack.track) {
+      const track = streamOrTrack.track || streamOrTrack;
+      audioEl.srcObject = new MediaStream([track]);
+    }
+
+    audioEl.muted = false;
+    audioEl.volume = 1.0;
+    audioEl.play().catch(e => console.warn('Autoplay audio blocked:', e));
+  }
+
+  checkAndAttachReceivers(senderSocketId, pc) {
+    if (!pc) return;
+    try {
+      const receivers = pc.getReceivers();
+      receivers.forEach(r => {
+        if (r.track && r.track.kind === 'audio') {
+          this.attachRemoteStream(senderSocketId, r.track);
+        }
+      });
+    } catch (e) {
+      console.warn('Error verificando receivers:', e);
+    }
+  }
+
   async handleIncomingSignal(senderSocketId, signal) {
     if (!this.inVoiceRoom) return;
 
@@ -379,9 +404,11 @@ class WebRTCVoiceManager {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       window.socketManager.sendWebRTCSignal(senderSocketId, { answer });
+      this.checkAndAttachReceivers(senderSocketId, pc);
     } else if (signal.answer) {
       await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
       this.processPendingCandidates(senderSocketId, pc);
+      this.checkAndAttachReceivers(senderSocketId, pc);
     } else if (signal.candidate) {
       const candidate = new RTCIceCandidate(signal.candidate);
       if (pc.remoteDescription && pc.remoteDescription.type) {

@@ -43,6 +43,10 @@
         <button class="btn btn-secondary btn-sm btn-icon-only-mobile" id="btnCopyInvite" title="Copiar Código de Sala">
           <span>📋</span> <span class="hide-mobile">Copiar Código</span>
         </button>
+
+        <button class="btn btn-primary btn-sm" id="btnOpenSwitchRoomModal" title="Crear o Cambiar de Sala">
+          <span>✨ Crear / Cambiar Sala</span>
+        </button>
       </div>
 
       <div class="header-user-profile">
@@ -443,6 +447,30 @@
         <span class="nav-label">Amigos</span>
       </button>
     </nav>
+
+    <!-- MODAL PARA CREAR O CAMBIAR DE SALA INSTANTÁNEAMENTE -->
+    <div class="modal-overlay" id="modalSwitchRoom" style="display: none;">
+      <div class="glass-card lobby-card animate-fade-in" style="max-width: 420px; position: relative; padding: 24px;">
+        <button class="btn-close-popover" id="btnCloseSwitchRoomModal" style="top: 14px; right: 14px;">✕</button>
+        <div class="lobby-header" style="margin-bottom: 16px; text-align: center;">
+          <h3 style="color: #fff; font-weight: 800; font-size: 1.25rem;">✨ Crear o Cambiar de Sala</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">Crea una nueva sala como Host o únete a otra existente sin ir al inicio.</p>
+        </div>
+
+        <div class="lobby-actions">
+          <button class="btn btn-primary btn-lg btn-block" id="btnModalCreateRoom">
+            <span>✨ Crear Nueva Sala (Host 👑)</span>
+          </button>
+
+          <div class="divider"><span>o únete a otra sala</span></div>
+
+          <div class="join-box">
+            <input type="text" id="inputModalRoomCode" class="glass-input uppercase" placeholder="Código de sala (ej: AB12CD)" maxlength="6">
+            <button class="btn btn-secondary" id="btnModalJoinRoom">Unirme</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- NOTIFICACIONES TOAST -->
     <div id="toastContainer" class="toast-container"></div>

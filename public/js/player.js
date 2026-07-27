@@ -85,7 +85,7 @@ class PlayerManager {
   // ─── Video activo ─────────────────────────────────────────────────────────
   _activeVideo() {
     if (this.currentType === 'gdrive') return this.gdriveVideo;
-    if (this.currentType === 'mp4')    return this.mp4Video;
+    if (this.currentType === 'mp4' || this.currentType === 'hls') return this.mp4Video;
     return null;
   }
 
