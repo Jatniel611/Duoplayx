@@ -8,7 +8,26 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node server/index.js",
-    "build:exe": "node build-exe.js"
+    "build:exe": "node build-exe.js",
+    "build:electron": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.duoplayx.desktop",
+    "productName": "DuoPlayX",
+    "extraMetadata": {
+      "main": "electron-main.js"
+    },
+    "win": {
+      "icon": "public/icon.ico",
+      "target": "portable"
+    },
+    "portable": {
+      "artifactName": "DuoPlayX-Desktop.exe"
+    },
+    "files": [
+      "electron-main.js",
+      "public/**/*"
+    ]
   },
   "keywords": [
     "watch-party",
@@ -21,12 +40,17 @@
   "author": "Antigravity AI",
   "license": "MIT",
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
-    "@yao-pkg/pkg": "^5.12.0"
+    "@yao-pkg/pkg": "^5.12.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2"
   },
   "pkg": {
     "scripts": "server/**/*.js",
