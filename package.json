@@ -1,6 +1,6 @@
 {
   "name": "rave-watch-party",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Plataforma de Watch Party en tiempo real sincronizada estilo Rave para YouTube y MP4 directos",
   "main": "server/index.js",
   "bin": "server/index.js",
@@ -24,6 +24,7 @@
     },
     "files": [
       "electron-main.js",
+      "server/**/*",
       "public/**/*",
       "!node_modules/**/*",
       "!android/**/*",
@@ -46,7 +47,8 @@
     "@capacitor/core": "^8.4.2",
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@yao-pkg/pkg": "^5.12.0",
