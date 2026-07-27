@@ -34,12 +34,13 @@ const httpsAgent = new https.Agent({
   maxSockets: 100
 });
 
-function makeHttpsRequest(url, headers = {}) {
+function makeHttpsRequest(url, headers = {}, maxRedirects = 4) {
   return new Promise((resolve, reject) => {
+    if (maxRedirects < 0) return reject(new Error('Demasiados redireccionamientos HTTP'));
     const u = new URL(url);
     const opts = {
       hostname: u.hostname,
-      port: u.port || 443,
+      port: u.port || (u.protocol === 'https:' ? 443 : 80),
       path: u.pathname + u.search,
       method: 'GET',
       agent: httpsAgent,
@@ -49,7 +50,17 @@ function makeHttpsRequest(url, headers = {}) {
         ...headers
       }
     };
-    const r = https.request(opts, resolve);
+    const r = https.request(opts, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        try {
+          const redirectUrl = new URL(res.headers.location, url).href;
+          return makeHttpsRequest(redirectUrl, headers, maxRedirects - 1).then(resolve).catch(reject);
+        } catch (eRed) {
+          return resolve(res);
+        }
+      }
+      resolve(res);
+    });
     r.on('error', reject);
     r.end();
   });
@@ -306,11 +317,19 @@ async function extractHlsFromEmbed(embedUrl) {
       try {
         const jsonData = JSON.parse(jsonScriptMatch[1].trim());
         if (jsonData && Array.isArray(jsonData.embeds)) {
-          for (const embedObj of jsonData.embeds) {
+          // Priorizar Vimeos / Vimeus / HLSWish en el orden de prueba
+          const sortedEmbeds = jsonData.embeds.sort((a, b) => {
+            const aUrl = (a && a.url) ? a.url.toLowerCase() : '';
+            const bUrl = (b && b.url) ? b.url.toLowerCase() : '';
+            const score = (u) => (u.includes('vimeos') || u.includes('vimeus')) ? 3 : (u.includes('hlswish') || u.includes('goodstream') ? 2 : 1);
+            return score(bUrl) - score(aUrl);
+          });
+
+          for (const embedObj of sortedEmbeds) {
             if (embedObj && embedObj.url) {
-              console.log(`[Vimeus Extractor] Probando sub-embed desde #data JSON: ${embedObj.url}`);
+              console.log(`[Vimeus Extractor] Probando sub-embed prioritario: ${embedObj.url}`);
               const subResult = await extractHlsFromEmbed(embedObj.url);
-              if (subResult && subResult.url && subResult.url !== embedObj.url && subResult.type === 'hls') {
+              if (subResult && subResult.url && subResult.url !== embedObj.url) {
                 return subResult;
               }
             }

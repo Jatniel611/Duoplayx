@@ -351,6 +351,17 @@ class WebRTCVoiceManager {
     return pc;
   }
 
+  unlockAudio() {
+    if (this.remoteAudioContext && this.remoteAudioContext.state === 'suspended') {
+      this.remoteAudioContext.resume().catch(() => {});
+    }
+    document.querySelectorAll('audio[id^="audio_peer_"]').forEach(audio => {
+      audio.muted = false;
+      audio.volume = 1.0;
+      audio.play().catch(() => {});
+    });
+  }
+
   attachRemoteStream(targetSocketId, streamOrTrack) {
     if (!targetSocketId || !streamOrTrack) return;
     console.log(`🔊 Vinculando y reproduciendo audio de ${targetSocketId}`);
@@ -369,11 +380,30 @@ class WebRTCVoiceManager {
       stream = streamOrTrack;
     } else if (streamOrTrack && (streamOrTrack.kind === 'audio' || streamOrTrack.track)) {
       const track = streamOrTrack.track || streamOrTrack;
+      track.enabled = true;
       stream = new MediaStream([track]);
     }
 
     if (stream) {
       audioEl.srcObject = stream;
+      stream.getAudioTracks().forEach(t => t.enabled = true);
+
+      // Puente WebAudio nativo para garantizar salida directa por altavoces
+      try {
+        if (!this.remoteAudioContext) {
+          this.remoteAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.remoteAudioContext.state === 'suspended') {
+          this.remoteAudioContext.resume().catch(() => {});
+        }
+        if (!audioEl._webAudioConnected) {
+          const source = this.remoteAudioContext.createMediaStreamSource(stream);
+          source.connect(this.remoteAudioContext.destination);
+          audioEl._webAudioConnected = true;
+        }
+      } catch (eWa) {
+        console.warn('WebAudio bridge fallback:', eWa);
+      }
     }
 
     audioEl.muted = false;
