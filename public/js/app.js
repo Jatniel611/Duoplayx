@@ -327,18 +327,36 @@ class AppUI {
       }
     });
 
-    // PANTALLA COMPLETA
+    // PANTALLA COMPLETA HÍBRIDA (NATIVA + FALLBACK CSS PARA ANDROID)
     this.btnToggleFullscreen.addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        if (this.playerStage.requestFullscreen) {
-          this.playerStage.requestFullscreen();
-        } else if (this.playerStage.webkitRequestFullscreen) {
-          this.playerStage.webkitRequestFullscreen();
+      const stage = this.playerStage || document.getElementById('playerStage');
+      if (!stage) return;
+
+      const isNativeFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement);
+      const isCssFS = stage.classList.contains('fullscreen-active');
+
+      if (!isNativeFS && !isCssFS) {
+        let promise = null;
+        if (stage.requestFullscreen) {
+          promise = stage.requestFullscreen();
+        } else if (stage.webkitRequestFullscreen) {
+          promise = stage.webkitRequestFullscreen();
+        }
+
+        if (promise && promise.catch) {
+          promise.catch(err => {
+            console.warn('Pantalla completa nativa rechazada en Android, usando fallback CSS:', err);
+            stage.classList.add('fullscreen-active');
+            this.handleFullscreenChange();
+          });
         }
       } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
+        if (isNativeFS) {
+          if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         }
+        stage.classList.remove('fullscreen-active');
+        this.handleFullscreenChange();
       }
     });
 

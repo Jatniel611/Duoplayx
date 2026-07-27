@@ -284,13 +284,15 @@ app.post('/api/resolve-media', async (req, res) => {
     if (cleanUrl.includes('drive.google.com') || cleanUrl.includes('drive.usercontent.google.com')) {
       const match = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || cleanUrl.match(/id=([a-zA-Z0-9_-]+)/);
       if (match) {
-        return res.json({ type: 'gdrive', fileId: match[1], url: `/api/gdrive-stream/${match[1]}` });
+        return res.json({ type: 'gdrive', fileId: match[1], url: `/api/gdrive-stream/${match[1]}`, isGDrive: true });
       }
     }
 
-    // 2. YouTube
+    // 2. YouTube (incluye videoId obligatorio)
     if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
-      return res.json({ type: 'youtube', url: cleanUrl });
+      const ytMatch = cleanUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+      const videoId = ytMatch ? ytMatch[1] : null;
+      return res.json({ type: 'youtube', url: cleanUrl, videoId: videoId });
     }
 
     // 3. Pixeldrain (convertir /u/ID a /api/file/ID)
@@ -307,9 +309,19 @@ app.post('/api/resolve-media', async (req, res) => {
       return res.json({ type: 'hls', url: cleanUrl });
     }
 
-    // 5. Extractor HLS para embeds (vimeus.com, vimeos.net, etc.)
-    const resolved = await extractHlsFromEmbed(cleanUrl);
-    return res.json(resolved);
+    // 5. Archivos de video MP4/MKV/WEBM directos
+    if (cleanUrl.match(/\.(mp4|mkv|webm|ogv|mov)(\?.*)?$/i)) {
+      return res.json({ type: 'mp4', url: cleanUrl });
+    }
+
+    // 6. Extractor HLS específico para sitios embed (vimeus.com, vimeos.net, /embed, etc.)
+    if (cleanUrl.includes('vimeus.com') || cleanUrl.includes('vimeos.net') || cleanUrl.includes('/embed') || cleanUrl.includes('/e/')) {
+      const resolved = await extractHlsFromEmbed(cleanUrl);
+      return res.json(resolved);
+    }
+
+    // Fallback genérico: MP4
+    return res.json({ type: 'mp4', url: cleanUrl });
 
   } catch (err) {
     console.error('[Resolve Media Error]:', err.message);
