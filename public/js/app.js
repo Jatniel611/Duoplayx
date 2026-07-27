@@ -331,45 +331,6 @@ class AppUI {
       }
     });
 
-  quickParseMedia(url) {
-    if (!url || typeof url !== 'string') return null;
-    url = url.trim();
-
-    // 1. YouTube
-    const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-    if (ytMatch && ytMatch[1]) {
-      return { type: 'youtube', url: url, videoId: ytMatch[1] };
-    }
-
-    // 2. Google Drive
-    const gdriveMatch = url.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/);
-    if (gdriveMatch && gdriveMatch[1]) {
-      const fileId = gdriveMatch[1];
-      return { type: 'gdrive', url: `/api/gdrive-stream/${fileId}`, fileId: fileId, isGDrive: true };
-    }
-
-    // 3. Pixeldrain
-    if (url.includes('pixeldrain.com')) {
-      if (url.includes('/u/')) {
-        const fileId = url.split('/u/')[1].split('/')[0].split('?')[0];
-        url = `https://pixeldrain.com/api/file/${fileId}`;
-      }
-      return { type: 'mp4', url: url };
-    }
-
-    // 4. Enlaces .m3u8 directos
-    if (url.includes('.m3u8')) {
-      return { type: 'hls', url: url };
-    }
-
-    // 5. Archivos de video directo (.mp4, .mkv, .webm, .mov, etc.)
-    if (url.match(/\.(mp4|mkv|webm|ogv|mov|m4v|avi)(\?.*)?$/i)) {
-      return { type: 'mp4', url: url };
-    }
-
-    return null;
-  }
-
     // SELECTOR DE CALIDAD DE VIDEO
     this.selectVideoQuality.addEventListener('change', (e) => {
       const quality = e.target.value;
@@ -695,6 +656,46 @@ class AppUI {
     document.addEventListener('fullscreenchange', () => this.handleFullscreenChange());
     document.addEventListener('webkitfullscreenchange', () => this.handleFullscreenChange());
     document.addEventListener('mozfullscreenchange', () => this.handleFullscreenChange());
+  }
+
+  quickParseMedia(url) {
+    if (!url || typeof url !== 'string') return null;
+    url = url.trim();
+
+    // 1. YouTube
+    const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+    if (ytMatch && ytMatch[1]) {
+      return { type: 'youtube', url: url, videoId: ytMatch[1] };
+    }
+
+    // 2. Google Drive
+    const gdriveMatch = url.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/);
+    if (gdriveMatch && gdriveMatch[1]) {
+      const fileId = gdriveMatch[1];
+      return { type: 'gdrive', url: `/api/gdrive-stream/${fileId}`, fileId: fileId, isGDrive: true };
+    }
+
+    // 3. Pixeldrain
+    if (url.includes('pixeldrain.com')) {
+      let fileId = null;
+      if (url.includes('/u/')) {
+        fileId = url.split('/u/')[1].split('/')[0].split('?')[0];
+        url = `https://pixeldrain.com/api/file/${fileId}`;
+      }
+      return { type: 'mp4', url: url };
+    }
+
+    // 4. Enlaces .m3u8 directos
+    if (url.includes('.m3u8')) {
+      return { type: 'hls', url: url };
+    }
+
+    // 5. Archivos de video directo (.mp4, .mkv, .webm, .mov, etc.)
+    if (url.match(/\.(mp4|mkv|webm|ogv|mov|m4v|avi)(\?.*)?$/i)) {
+      return { type: 'mp4', url: url };
+    }
+
+    return null;
   }
 
   handleFullscreenChange() {
