@@ -11,7 +11,19 @@ class SocketManager {
   }
 
   init() {
-    this.socket = io();
+    let serverUrl = window.location.origin;
+    if (!serverUrl || serverUrl.startsWith('file:') || serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1') || serverUrl.startsWith('capacitor:')) {
+      serverUrl = 'https://duoplayx.onrender.com';
+    }
+
+    console.log(`🔌 Conectando Socket.io a: ${serverUrl}`);
+    this.socket = io(serverUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 20,
+      reconnectionDelay: 1000,
+      timeout: 10000
+    });
 
     this.socket.on('connect', () => {
       console.log('⚡ Conectado al servidor WebSocket:', this.socket.id);
@@ -48,38 +60,39 @@ class SocketManager {
       if (data.newHostId === this.socket.id) {
         this.isHost = true;
         window.appUI.updateHostControlsView(true);
-        window.appUI.showToast('¡Ahora eres el Host (Creador) de la sala! 👑', 'success');
+        window.appUI.showToast('👑 Ahora eres el Host de la sala.', 'info');
       }
     });
 
-    // EVENTO DE EXPULSIÓN DE LA SALA
-    this.socket.on('kicked_from_room', (data) => {
-      alert(data.message || 'Has sido expulsado de la sala por el Host.');
-      window.location.href = window.location.pathname;
-    });
-
-    this.socket.on('new_chat_message', (message) => {
-      window.appUI.appendChatMessage(message);
-    });
-
-    this.socket.on('new_reaction', (data) => {
-      window.appUI.triggerFloatingReaction(data.emoji);
-    });
-
-    // SALA DE VOZ WEBRTC PRESENCE & MEMBERS
-    this.socket.on('voice_room_updated', (data) => {
-      window.appUI.updateVoiceRoomState(data.voiceMembers, data.users);
-      if (window.webrtcVoiceManager.inVoiceRoom) {
-        window.webrtcVoiceManager.syncVoicePeers(data.voiceMembers);
+    this.socket.on('user_kicked', (data) => {
+      if (data.kickedSocketId === this.socket.id) {
+        alert('Has sido expulsado de la sala por el Host.');
+        window.location.reload();
+      } else {
+        window.appUI.updateUsersList(data.users);
+        if (data.sysMessage) window.appUI.appendChatMessage(data.sysMessage);
       }
+    });
+
+    this.socket.on('voice_members_updated', (data) => {
+      window.appUI.updateVoiceMembersUI(data.voiceMembers);
+      window.webrtcVoiceManager.syncVoicePeers(data.voiceMembers);
+    });
+
+    this.socket.on('speaking_state_changed', (data) => {
+      window.appUI.setUserSpeakingIndicator(data.socketId, data.isSpeaking);
     });
 
     this.socket.on('webrtc_signal', (data) => {
       window.webrtcVoiceManager.handleIncomingSignal(data.senderSocketId, data.signal);
     });
 
-    this.socket.on('user_speaking_updated', (data) => {
-      window.appUI.setUserSpeakingIndicator(data.socketId, data.isSpeaking);
+    this.socket.on('receive_chat_message', (message) => {
+      window.appUI.appendChatMessage(message);
+    });
+
+    this.socket.on('receive_reaction', (data) => {
+      window.appUI.showFloatingReaction(data.emoji, data.username);
     });
 
     this.socket.on('error_message', (data) => {
@@ -89,6 +102,20 @@ class SocketManager {
 
   createRoom(username, avatar) {
     return new Promise((resolve, reject) => {
+      if (!this.socket || !this.socket.connected) {
+        if (window.appUI) window.appUI.showToast('Conectando al servidor... Reintentando en un momento.', 'info');
+
+        const timer = setTimeout(() => {
+          reject('No se pudo conectar al servidor. Verifica tu conexión a internet.');
+        }, 10000);
+
+        this.socket.once('connect', () => {
+          clearTimeout(timer);
+          this.createRoom(username, avatar).then(resolve).catch(reject);
+        });
+        return;
+      }
+
       this.socket.emit('create_room', { username, avatar }, (response) => {
         if (response && response.success) {
           this.currentRoomId = response.room.roomId;
@@ -104,6 +131,20 @@ class SocketManager {
 
   joinRoom(roomId, username, avatar) {
     return new Promise((resolve, reject) => {
+      if (!this.socket || !this.socket.connected) {
+        if (window.appUI) window.appUI.showToast('Conectando al servidor... Reintentando en un momento.', 'info');
+
+        const timer = setTimeout(() => {
+          reject('No se pudo conectar al servidor. Verifica tu conexión a internet.');
+        }, 10000);
+
+        this.socket.once('connect', () => {
+          clearTimeout(timer);
+          this.joinRoom(roomId, username, avatar).then(resolve).catch(reject);
+        });
+        return;
+      }
+
       this.socket.emit('join_room', { roomId, username, avatar }, (response) => {
         if (response && response.success) {
           this.currentRoomId = response.room.roomId;
