@@ -16,14 +16,24 @@ class SocketManager {
       serverUrl = 'https://duoplayx.onrender.com';
     }
 
+    if (typeof io === 'undefined') {
+      console.warn('⚠️ Librería socket.io client no detectada todavía.');
+      return;
+    }
+
     console.log(`🔌 Conectando Socket.io a: ${serverUrl}`);
-    this.socket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 20,
-      reconnectionDelay: 1000,
-      timeout: 10000
-    });
+    try {
+      this.socket = io(serverUrl, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 20,
+        reconnectionDelay: 1000,
+        timeout: 10000
+      });
+    } catch (e) {
+      console.error('Error al instanciar io():', e);
+      return;
+    }
 
     this.socket.on('connect', () => {
       console.log('⚡ Conectado al servidor WebSocket:', this.socket.id);

@@ -9,25 +9,27 @@
     "start": "node server/index.js",
     "dev": "node server/index.js",
     "build:exe": "node build-exe.js",
-    "build:electron": "electron-builder --win portable"
+    "build:electron": "electron-builder --win dir"
   },
   "build": {
     "appId": "com.duoplayx.desktop",
     "productName": "DuoPlayX",
+    "npmRebuild": false,
     "extraMetadata": {
       "main": "electron-main.js"
     },
     "win": {
       "icon": "public/icon.ico",
-      "target": "portable"
-    },
-    "portable": {
-      "artifactName": "DuoPlayX-Desktop.exe"
+      "target": "dir"
     },
     "files": [
       "electron-main.js",
-      "public/**/*"
-    ]
+      "public/**/*",
+      "!node_modules/**/*",
+      "!android/**/*",
+      "!dist/**/*"
+    ],
+    "asar": true
   },
   "keywords": [
     "watch-party",

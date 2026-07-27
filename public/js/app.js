@@ -216,7 +216,11 @@ class AppUI {
   }
 
   bindEvents() {
-    window.socketManager.init();
+    try {
+      if (window.socketManager) window.socketManager.init();
+    } catch (err) {
+      console.warn('Socket.io init diferido:', err);
+    }
 
     // Selección de Avatar
     this.avatarOptions.forEach(opt => {
