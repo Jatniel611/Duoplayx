@@ -184,6 +184,11 @@ class SocketManager {
     });
   }
 
+  requestHostSync() {
+    if (!this.currentRoomId) return;
+    this.socket.emit('request_host_sync', { roomId: this.currentRoomId });
+  }
+
   emitMediaAction(action, currentTime) {
     if (!this.currentRoomId) return;
     this.socket.emit('media_action', {

@@ -423,13 +423,24 @@ class AppUI {
       }
     });
 
-    // PANTALLA COMPLETA HÍBRIDA (NATIVA + FALLBACK CSS PARA ANDROID)
+    // PANTALLA COMPLETA HÍBRIDA (NATIVA PARA DESKTOP, CSS PARA ANDROID PARA EVITAR PANTALLA EN BLANCO)
     this.btnToggleFullscreen.addEventListener('click', () => {
       const stage = this.playerStage || document.getElementById('playerStage');
       if (!stage) return;
 
+      const isAndroidOrMobile = !!window.Capacitor || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isNativeFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement);
       const isCssFS = stage.classList.contains('fullscreen-active');
+
+      if (isAndroidOrMobile) {
+        if (isCssFS) {
+          stage.classList.remove('fullscreen-active');
+        } else {
+          stage.classList.add('fullscreen-active');
+        }
+        this.handleFullscreenChange();
+        return;
+      }
 
       if (!isNativeFS && !isCssFS) {
         let promise = null;
@@ -441,7 +452,7 @@ class AppUI {
 
         if (promise && promise.catch) {
           promise.catch(err => {
-            console.warn('Pantalla completa nativa rechazada en Android, usando fallback CSS:', err);
+            console.warn('Pantalla completa nativa rechazada, usando fallback CSS:', err);
             stage.classList.add('fullscreen-active');
             this.handleFullscreenChange();
           });
@@ -619,7 +630,8 @@ class AppUI {
           window.socketManager.emitMediaAction('seek', time);
           this.showToast('Sincronización forzada enviada 🔄', 'info');
         } else {
-          this.showToast('Sincronizando reproductor 🔄', 'info');
+          window.socketManager.requestHostSync();
+          this.showToast('Sincronizando con el tiempo actual del Host... 🔄', 'info');
         }
       });
     }

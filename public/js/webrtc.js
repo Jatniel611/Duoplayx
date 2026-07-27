@@ -360,20 +360,28 @@ class WebRTCVoiceManager {
       audioEl.id = `audio_peer_${targetSocketId}`;
       audioEl.autoplay = true;
       audioEl.playsInline = true;
-      audioEl.style.display = 'none';
+      audioEl.style.cssText = 'position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; top: -9999px; left: -9999px;';
       document.body.appendChild(audioEl);
     }
 
+    let stream = null;
     if (streamOrTrack instanceof MediaStream) {
-      audioEl.srcObject = streamOrTrack;
-    } else if (streamOrTrack.kind === 'audio' || streamOrTrack.track) {
+      stream = streamOrTrack;
+    } else if (streamOrTrack && (streamOrTrack.kind === 'audio' || streamOrTrack.track)) {
       const track = streamOrTrack.track || streamOrTrack;
-      audioEl.srcObject = new MediaStream([track]);
+      stream = new MediaStream([track]);
+    }
+
+    if (stream) {
+      audioEl.srcObject = stream;
     }
 
     audioEl.muted = false;
     audioEl.volume = 1.0;
-    audioEl.play().catch(e => console.warn('Autoplay audio blocked:', e));
+    const p = audioEl.play();
+    if (p && p.catch) {
+      p.catch(e => console.warn(`[Audio Peer ${targetSocketId}] Autoplay diferido:`, e.message));
+    }
   }
 
   checkAndAttachReceivers(senderSocketId, pc) {

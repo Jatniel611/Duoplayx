@@ -480,6 +480,27 @@ body.dark-theme {
   letter-spacing: 0.5px;
 }
 
+/* PANTALLA COMPLETA CSS FALLBACK PARA ANDROID Y MÓVIL (PREVIENE PANTALLA EN BLANCO) */
+.player-stage.fullscreen-active {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 999999 !important;
+  background: #000 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+.player-stage.fullscreen-active video,
+.player-stage.fullscreen-active iframe {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  border-radius: 0 !important;
+}
+
 /* BURBUJA Y OVERLAY DE CHAT FLOTANTE DUOPLAYX (SOBRE EL VIDEO) */
 .floating-chat-bubble {
   position: absolute;

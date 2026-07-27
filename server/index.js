@@ -265,6 +265,12 @@ function unpackDeanEdwardsJs(code) {
 async function extractHlsFromEmbed(embedUrl) {
   try {
     let targetUrl = embedUrl.trim();
+    if (targetUrl.includes('vimeus.com/v/')) {
+      targetUrl = targetUrl.replace('vimeus.com/v/', 'vimeus.com/e/');
+    }
+    if (targetUrl.includes('vimeos.net/v/')) {
+      targetUrl = targetUrl.replace('vimeos.net/v/', 'vimeos.net/e/');
+    }
 
     // Pixeldrain
     if (targetUrl.includes('pixeldrain.com')) {
@@ -578,6 +584,23 @@ io.on('connection', (socket) => {
       currentTime,
       isPlaying,
       triggeredBy: room.users.get(socket.id)?.username || 'Host'
+    });
+  });
+
+  socket.on('request_host_sync', (data) => {
+    const { roomId } = data || {};
+    const room = roomManager.getRoom(roomId) || roomManager.getRoomByUser(socket.id);
+
+    if (!room) return;
+
+    const calcTime = roomManager.getCalculatedCurrentTime(room);
+    const isPlaying = room.mediaState ? !!room.mediaState.isPlaying : false;
+
+    socket.emit('sync_media_action', {
+      action: 'sync',
+      currentTime: calcTime,
+      isPlaying: isPlaying,
+      triggeredBy: 'Host Sync'
     });
   });
 
