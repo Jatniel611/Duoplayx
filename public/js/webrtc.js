@@ -1,6 +1,7 @@
 /**
  * WebRTCVoiceManager - Sistema de Sala de Voz en Vivo para DuoPlayX
- * Soporta modo con micrófono y modo solo oyente (escuchar sin micro)
+ * Entra en modo solo oyente por defecto (0 permisos requeridos).
+ * Activa micrófono únicamente al presionar el botón de micrófono.
  */
 
 class WebRTCVoiceManager {
@@ -34,7 +35,6 @@ class WebRTCVoiceManager {
   }
 
   unlockAudio() {
-    console.log('🔊 Desbloqueando altavoces de audio WebRTC...');
     document.querySelectorAll('audio[id^="audio_peer_"]').forEach(el => {
       el.muted = false;
       el.volume = 1.0;
@@ -50,29 +50,14 @@ class WebRTCVoiceManager {
 
     this.inVoiceRoom = true;
     this.isMuted = true;
-
-    // Intentar capturar micrófono si está disponible
-    try {
-      this.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: false
-      });
-      this.isMuted = false;
-      this.initAudioAnalyser();
-      window.appUI.showToast('¡Te has unido a la Sala de Voz con micrófono! 🎙️', 'success');
-    } catch (err) {
-      console.warn('Microphone not available, joining as listener only:', err);
-      this.localStream = null;
-      this.isMuted = true;
-      window.appUI.showToast('¡Te has unido a la Sala de Voz en modo Oyente (escuchar)! 🎧', 'info');
-    }
+    this.localStream = null; // Entrar como OYENTE por defecto sin solicitar micrófono
 
     window.socketManager.joinVoiceRoom();
     this.unlockAudio();
+
+    if (window.appUI) {
+      window.appUI.showToast('¡Te has unido a la Sala de Voz en modo Oyente! 🎧 (Presiona 🎙️ para hablar)', 'info');
+    }
 
     return true;
   }
@@ -101,37 +86,65 @@ class WebRTCVoiceManager {
   async toggleMicMute() {
     if (!this.inVoiceRoom) return true;
 
+    // Si aún no se ha capturado el micrófono, capturarlo ahora (se solicitará permiso)
     if (!this.localStream) {
-      // Intentar activar micrófono si antes era solo oyente
       try {
         this.localStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
           video: false
         });
         this.isMuted = false;
         this.initAudioAnalyser();
 
-        // Añadir pista a las conexiones peer existentes
-        this.peerConnections.forEach(pc => {
-          this.localStream.getTracks().forEach(track => {
-            pc.addTrack(track, this.localStream);
-          });
+        // Enviar la pista de audio a todas las conexiones peer activas
+        const audioTrack = this.localStream.getAudioTracks()[0];
+        this.peerConnections.forEach(async (pc, targetId) => {
+          const senders = pc.getSenders();
+          const audioSender = senders.find(s => s.track?.kind === 'audio' || !s.track);
+          if (audioSender) {
+            await audioSender.replaceTrack(audioTrack);
+          } else {
+            pc.addTrack(audioTrack, this.localStream);
+          }
+
+          // Iniciar renegociación si es necesario
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            window.socketManager.sendWebRTCSignal(targetId, { offer });
+          } catch (e) {
+            console.warn('Renegotiation error:', e);
+          }
         });
 
         window.socketManager.sendSpeakingState(false, false);
-        return false;
+        if (window.appUI) {
+          window.appUI.showToast('¡Micrófono activado! 🎙️ Ya te escuchan.', 'success');
+        }
+        return false; // Retorna false (no silenciado)
       } catch (e) {
-        window.appUI.showToast('No se pudo acceder al micrófono.', 'warning');
+        console.error('Error al acceder al micrófono:', e);
+        if (window.appUI) {
+          window.appUI.showToast('No se pudo acceder al micrófono. Verifica los permisos de tu dispositivo.', 'warning');
+        }
         return true;
       }
     }
 
+    // Si ya existe el stream, alternar silenciamiento (Mute / Unmute)
     this.isMuted = !this.isMuted;
     this.localStream.getAudioTracks().forEach(track => {
       track.enabled = !this.isMuted;
     });
 
     window.socketManager.sendSpeakingState(false, this.isMuted);
+    if (window.appUI) {
+      window.appUI.showToast(this.isMuted ? 'Micrófono silenciado 🔇' : 'Micrófono activo 🎙️', 'info');
+    }
     return this.isMuted;
   }
 
@@ -202,9 +215,18 @@ class WebRTCVoiceManager {
     this.peerConnections.set(targetSocketId, pc);
     this.iceCandidateQueues.set(targetSocketId, []);
 
+    // Añadir Transceiver de audio bidireccional por defecto
+    pc.addTransceiver('audio', { direction: 'sendrecv' });
+
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => {
-        pc.addTrack(track, this.localStream);
+        const senders = pc.getSenders();
+        const audioSender = senders.find(s => s.track?.kind === 'audio' || !s.track);
+        if (audioSender) {
+          audioSender.replaceTrack(track);
+        } else {
+          pc.addTrack(track, this.localStream);
+        }
       });
     }
 
@@ -218,7 +240,13 @@ class WebRTCVoiceManager {
         audioEl.playsInline = true;
         document.body.appendChild(audioEl);
       }
-      audioEl.srcObject = event.streams[0];
+
+      if (event.streams && event.streams[0]) {
+        audioEl.srcObject = event.streams[0];
+      } else if (event.track) {
+        audioEl.srcObject = new MediaStream([event.track]);
+      }
+
       audioEl.muted = false;
       audioEl.volume = 1.0;
       audioEl.play().catch(e => console.warn('Autoplay audio blocked:', e));
