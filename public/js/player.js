@@ -246,6 +246,8 @@ class PlayerManager {
       // MP4 / Pixeldrain / Enlace directo
       this.currentType = 'mp4';
       this._showContainer('mp4');
+      this.mp4Video.removeAttribute('crossorigin');
+      this.mp4Video.setAttribute('referrerpolicy', 'no-referrer');
       this.mp4Video.src = media.url;
       this.mp4Video.load();
       this.mp4Video.play().catch(e => console.log('[MP4] Autoplay bloqueado:', e.message));

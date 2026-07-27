@@ -153,14 +153,22 @@ class WebRTCVoiceManager {
         autoGainControl: true
       };
 
-      if (deviceId) {
-        audioConstraints.deviceId = { exact: deviceId };
+      if (deviceId && typeof deviceId === 'string' && deviceId.trim() !== '' && deviceId !== 'null' && deviceId !== 'undefined') {
+        audioConstraints.deviceId = { exact: deviceId.trim() };
       }
 
-      this.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: audioConstraints,
-        video: false
-      });
+      try {
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: false
+        });
+      } catch (errDevice) {
+        console.warn('Falló captura con dispositivo exacto, intentando por defecto:', errDevice);
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false
+        });
+      }
 
       this.isMuted = false;
       this.initAudioAnalyser();

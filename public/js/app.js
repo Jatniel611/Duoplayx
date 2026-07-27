@@ -552,8 +552,11 @@ class AppUI {
     // Reacciones Flotantes
     document.querySelectorAll('.btn-reaction').forEach(btn => {
       btn.addEventListener('click', () => {
-        const emoji = btn.dataset.emoji;
-        window.socketManager.sendReaction(emoji);
+        const emoji = btn.dataset.emoji || btn.innerText.trim();
+        if (emoji) {
+          this.triggerFloatingReaction(emoji);
+          window.socketManager.sendReaction(emoji);
+        }
       });
     });
 

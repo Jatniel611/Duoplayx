@@ -233,13 +233,45 @@ async function safeFetchHtml(targetUrl, referer) {
   }
 }
 
+function unpackDeanEdwardsJs(code) {
+  if (!code || typeof code !== 'string') return code;
+  try {
+    const matches = code.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\.split\('\|'\)\)\)/g);
+    if (!matches) return code;
+
+    let unpackedAll = code;
+    for (const matchStr of matches) {
+      const parts = matchStr.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([\s\S]*?)'\.split\('\|'\)/);
+      if (parts) {
+        let [_, p, a, c, k] = parts;
+        a = parseInt(a, 10);
+        c = parseInt(c, 10);
+        k = k.split('|');
+        const eFunc = (c) => (c < a ? '' : eFunc(Math.floor(c / a))) + ((c = c % a) > 35 ? String.fromCharCode(c + 29) : c.toString(36));
+        while (c--) {
+          if (k[c]) {
+            p = p.replace(new RegExp('\\b' + eFunc(c) + '\\b', 'g'), k[c]);
+          }
+        }
+        unpackedAll += '\n' + p;
+      }
+    }
+    return unpackedAll;
+  } catch (err) {
+    return code;
+  }
+}
+
 async function extractHlsFromEmbed(embedUrl) {
   try {
     let targetUrl = embedUrl.trim();
 
-    if (targetUrl.includes('pixeldrain.com/u/')) {
-      const fileId = targetUrl.split('pixeldrain.com/u/')[1].split('/')[0].split('?')[0];
-      return { type: 'mp4', url: `https://pixeldrain.com/api/file/${fileId}` };
+    // Pixeldrain
+    if (targetUrl.includes('pixeldrain.com')) {
+      const fileIdMatch = targetUrl.match(/pixeldrain\.com\/(?:u|l|api\/file)\/([a-zA-Z0-9_-]+)/);
+      if (fileIdMatch && fileIdMatch[1]) {
+        return { type: 'mp4', url: `https://pixeldrain.com/api/file/${fileIdMatch[1]}` };
+      }
     }
 
     if (targetUrl.includes('.m3u8')) {
@@ -249,29 +281,36 @@ async function extractHlsFromEmbed(embedUrl) {
     const u = new URL(targetUrl);
     const domain = `${u.protocol}//${u.hostname}`;
 
-    const html = await safeFetchHtml(targetUrl, domain);
+    let html = await safeFetchHtml(targetUrl, domain);
     if (!html) {
       return { type: 'mp4', url: targetUrl };
     }
 
-    // A. Coincidencia directa .m3u8
-    const m3u8Match = html.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.m3u8[^"'`\s>]*)/i);
+    // Desempaquetar JS de Vimeus / Vimeos / JWPlayer obfuscados
+    html = unpackDeanEdwardsJs(html);
+
+    // 1. Buscar .m3u8
+    const m3u8Match = html.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.m3u8[^"'`\s>]*)/i) ||
+                      html.match(/file:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
+                      html.match(/source:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
+                      html.match(/src:\s*["']([^"']+\.m3u8[^"']*)["']/i);
     if (m3u8Match) {
-      let hlsUrl = m3u8Match[1].replace(/\\/g, '');
+      let hlsUrl = (m3u8Match[1] || m3u8Match[0]).replace(/\\/g, '');
+      if (hlsUrl.startsWith('//')) hlsUrl = 'https:' + hlsUrl;
       return { type: 'hls', url: hlsUrl, referer: targetUrl };
     }
 
-    // B. Coincidencia en scripts JS empaquetados
-    const packedMatch = html.match(/file:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
-                        html.match(/source:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
-                        html.match(/src:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
-                        html.match(/["'](https?:[\\\/][\\\/][^"']+\.m3u8[^"']*)["']/i);
-    if (packedMatch) {
-      let hlsUrl = packedMatch[1].replace(/\\/g, '');
-      return { type: 'hls', url: hlsUrl, referer: targetUrl };
+    // 2. Buscar .mp4 directo
+    const mp4Match = html.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.(?:mp4|mkv|webm)[^"'`\s>]*)/i) ||
+                     html.match(/file:\s*["']([^"']+\.(?:mp4|mkv|webm)[^"']*)["']/i) ||
+                     html.match(/src:\s*["']([^"']+\.(?:mp4|mkv|webm)[^"']*)["']/i);
+    if (mp4Match) {
+      let mp4Url = (mp4Match[1] || mp4Match[0]).replace(/\\/g, '');
+      if (mp4Url.startsWith('//')) mp4Url = 'https:' + mp4Url;
+      return { type: 'mp4', url: mp4Url, referer: targetUrl };
     }
 
-    // C. Búsqueda de iframe interno
+    // 3. Búsqueda de iframe interno (para reproductores con anuncios de video)
     const iframeMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
     if (iframeMatch) {
       let iframeSrc = iframeMatch[1];
@@ -279,12 +318,23 @@ async function extractHlsFromEmbed(embedUrl) {
       else if (iframeSrc.startsWith('/')) iframeSrc = domain + iframeSrc;
 
       if (iframeSrc !== targetUrl) {
-        const innerHtml = await safeFetchHtml(iframeSrc, targetUrl);
+        let innerHtml = await safeFetchHtml(iframeSrc, targetUrl);
+        innerHtml = unpackDeanEdwardsJs(innerHtml);
+
         const innerM3u8 = innerHtml.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.m3u8[^"'`\s>]*)/i) ||
                           innerHtml.match(/file:\s*["']([^"']+\.m3u8[^"']*)["']/i);
         if (innerM3u8) {
-          let hlsUrl = innerM3u8[1].replace(/\\/g, '');
+          let hlsUrl = (innerM3u8[1] || innerM3u8[0]).replace(/\\/g, '');
+          if (hlsUrl.startsWith('//')) hlsUrl = 'https:' + hlsUrl;
           return { type: 'hls', url: hlsUrl, referer: iframeSrc };
+        }
+
+        const innerMp4 = innerHtml.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.(?:mp4|mkv|webm)[^"'`\s>]*)/i) ||
+                         innerHtml.match(/file:\s*["']([^"']+\.(?:mp4|mkv|webm)[^"']*)["']/i);
+        if (innerMp4) {
+          let mp4Url = (innerMp4[1] || innerMp4[0]).replace(/\\/g, '');
+          if (mp4Url.startsWith('//')) mp4Url = 'https:' + mp4Url;
+          return { type: 'mp4', url: mp4Url, referer: iframeSrc };
         }
       }
     }
