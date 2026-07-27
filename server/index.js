@@ -703,10 +703,12 @@ io.on('connection', (socket) => {
     const { roomId } = data;
     const result = roomManager.joinVoiceRoom(roomId, socket.id);
     if (result) {
-      io.to(roomId).emit('voice_room_updated', {
+      const payload = {
         voiceMembers: result.voiceMembers,
         users: roomManager.getUsersList(result.room)
-      });
+      };
+      io.to(roomId).emit('voice_room_updated', payload);
+      io.to(roomId).emit('voice_members_updated', payload);
     }
   });
 
@@ -714,10 +716,12 @@ io.on('connection', (socket) => {
     const { roomId } = data;
     const result = roomManager.leaveVoiceRoom(roomId, socket.id);
     if (result) {
-      io.to(roomId).emit('voice_room_updated', {
+      const payload = {
         voiceMembers: result.voiceMembers,
         users: roomManager.getUsersList(result.room)
-      });
+      };
+      io.to(roomId).emit('voice_room_updated', payload);
+      io.to(roomId).emit('voice_members_updated', payload);
     }
   });
 

@@ -84,10 +84,14 @@ class SocketManager {
       }
     });
 
-    this.socket.on('voice_members_updated', (data) => {
-      window.appUI.updateVoiceMembersUI(data.voiceMembers);
-      window.webrtcVoiceManager.syncVoicePeers(data.voiceMembers);
-    });
+    const handleVoiceUpdate = (data) => {
+      if (data && data.voiceMembers) {
+        window.appUI.updateVoiceMembersUI(data.voiceMembers);
+        window.webrtcVoiceManager.syncVoicePeers(data.voiceMembers);
+      }
+    };
+    this.socket.on('voice_room_updated', handleVoiceUpdate);
+    this.socket.on('voice_members_updated', handleVoiceUpdate);
 
     this.socket.on('speaking_state_changed', (data) => {
       window.appUI.setUserSpeakingIndicator(data.socketId, data.isSpeaking);

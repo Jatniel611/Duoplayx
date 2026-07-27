@@ -1093,6 +1093,16 @@ class AppUI {
       window.webrtcVoiceManager.populateMicrophones(this.selectMicDevice);
     }
 
+    // Auto-Sincronización inicial garantizada 1.2s después de ingresar a la sala como invitado
+    if (roomData.user && !roomData.user.isHost) {
+      setTimeout(() => {
+        if (this.currentRoom && window.socketManager) {
+          console.log('🔄 Ejecutando sincronización automática inicial de invitado...');
+          window.socketManager.requestHostSync();
+        }
+      }, 1200);
+    }
+
     // Mantener pantalla del navegador siempre encendida (Web WakeLock API)
     if ('wakeLock' in navigator) {
       navigator.wakeLock.request('screen').catch(() => {});
