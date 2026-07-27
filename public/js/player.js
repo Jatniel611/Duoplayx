@@ -397,11 +397,18 @@ class PlayerManager {
 
   // ─── Desbloqueo de autoplay ────────────────────────────────────────────────
   unlockVideoAutoplay() {
-    if (this.currentType === 'youtube' && this.ytPlayer && this.isYTReady) {
-      this.ytPlayer.playVideo();
+    if (window.socketManager?.isHost) {
+      if (this.currentType === 'youtube' && this.ytPlayer && this.isYTReady) {
+        this.ytPlayer.playVideo();
+      } else {
+        const vid = this._activeVideo();
+        if (vid) vid.play().catch(e => console.log('[Unlock]', e));
+      }
     } else {
-      const vid = this._activeVideo();
-      if (vid) vid.play().catch(e => console.log('[Unlock]', e));
+      // Si es invitado, solicitar la sincronización con el tiempo y estado del Host sin forzar .play()
+      if (window.socketManager) {
+        window.socketManager.requestHostSync();
+      }
     }
   }
 
