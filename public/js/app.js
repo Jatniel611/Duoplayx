@@ -171,6 +171,9 @@ class AppUI {
 
     this.chatMessages = document.getElementById('chatMessages');
     this.chatForm = document.getElementById('chatForm');
+    this.inputChatMessage = document.getElementById('inputChatMessage');
+    this.btnResync = document.getElementById('btnResync');
+    this.btnCopyInvite = document.getElementById('btnCopyInvite');
     this.usersList = document.getElementById('usersList');
     this.userCount = document.getElementById('userCount');
 
@@ -409,65 +412,26 @@ class AppUI {
     });
 
     // Copiar Código de Sala
-    this.btnCopyInvite.addEventListener('click', () => {
-      if (!this.currentRoom) return;
-      navigator.clipboard.writeText(this.currentRoom.roomId);
-      this.showToast(`¡Código de sala (${this.currentRoom.roomId}) copiado! 📋`, 'success');
-    });
-
-    // CONTROLES DE LA SALA DE VOZ DEDICADA
-    this.btnJoinVoiceRoom.addEventListener('click', async () => {
-      const ok = await window.webrtcVoiceManager.joinVoiceRoom();
-      if (ok) {
-        this.showToast('¡Te has unido a la Sala de Voz! 🎙️', 'success');
-      }
-    });
-
-    this.btnLeaveVoiceRoom.addEventListener('click', () => {
-      window.webrtcVoiceManager.leaveVoiceRoom();
-      this.showToast('Has salido de la Sala de Voz 🚪', 'info');
-    });
-
-    this.btnToggleMic.addEventListener('click', async () => {
-      const muted = await window.webrtcVoiceManager.toggleMicMute();
-      if (muted) {
-        this.voiceMicStateIcon.innerText = '🔇';
-        if (this.mobileMicIcon) this.mobileMicIcon.innerText = '🔇';
-        this.voiceMicStateLabel.innerText = 'Micrófono OFF';
-        this.showToast('Micrófono silenciado 🔇', 'info');
-      } else {
-        this.voiceMicStateIcon.innerText = '🎙️';
-        if (this.mobileMicIcon) this.mobileMicIcon.innerText = '🎙️';
-        this.voiceMicStateLabel.innerText = 'Micrófono ON';
-        this.showToast('Micrófono activado 🎙️', 'success');
-      }
-    });
-
-    // BARRA COMPACTA DE VOZ PARA MÓVIL
-    if (this.btnMobileJoinVoice) {
-      this.btnMobileJoinVoice.addEventListener('click', () => this.btnJoinVoiceRoom.click());
+    if (this.btnCopyInvite) {
+      this.btnCopyInvite.addEventListener('click', () => {
+        if (!this.currentRoom) return;
+        navigator.clipboard.writeText(this.currentRoom.roomId);
+        this.showToast(`¡Código de sala (${this.currentRoom.roomId}) copiado! 📋`, 'success');
+      });
     }
-    if (this.btnMobileLeaveVoice) {
-      this.btnMobileLeaveVoice.addEventListener('click', () => this.btnLeaveVoiceRoom.click());
-    }
-    if (this.btnMobileToggleMic) {
-      this.btnMobileToggleMic.addEventListener('click', () => this.btnToggleMic.click());
-    }
-
-    this.btnUnlockAudio.addEventListener('click', () => {
-      window.webrtcVoiceManager.unlockAudio();
-      this.showToast('Parlantes activados y audio listo 🔊', 'info');
-    });
 
     // Enviar Chat de texto
-    this.chatForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const text = this.inputChatMessage.value.trim();
-      if (text) {
-        window.socketManager.sendChatMessage(text, null);
-        this.inputChatMessage.value = '';
-      }
-    });
+    if (this.chatForm) {
+      this.chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!this.inputChatMessage) return;
+        const text = this.inputChatMessage.value.trim();
+        if (text) {
+          window.socketManager.sendChatMessage(text, null);
+          this.inputChatMessage.value = '';
+        }
+      });
+    }
 
     // CHAT FLOTANTE SOBRE EL VIDEO (DuoPlayX)
     if (this.btnFloatingChatBubble) {
@@ -490,70 +454,87 @@ class AppUI {
     }
 
     // SELECTOR DE EMOJIS
-    this.btnOpenEmojiPicker.addEventListener('click', () => {
-      const isVisible = this.emojiPickerPopover.style.display === 'flex';
-      this.gifPickerPopover.style.display = 'none';
-      if (!isVisible) {
-        this.emojiPickerPopover.style.display = 'flex';
-        this.renderEmojis(this.emojiCategories.faces);
-      } else {
-        this.emojiPickerPopover.style.display = 'none';
-      }
-    });
+    if (this.btnOpenEmojiPicker) {
+      this.btnOpenEmojiPicker.addEventListener('click', () => {
+        const isVisible = this.emojiPickerPopover && this.emojiPickerPopover.style.display === 'flex';
+        if (this.gifPickerPopover) this.gifPickerPopover.style.display = 'none';
+        if (this.emojiPickerPopover) {
+          if (!isVisible) {
+            this.emojiPickerPopover.style.display = 'flex';
+            this.renderEmojis(this.emojiCategories.faces);
+          } else {
+            this.emojiPickerPopover.style.display = 'none';
+          }
+        }
+      });
+    }
 
-    this.btnCloseEmojiPicker.addEventListener('click', () => {
-      this.emojiPickerPopover.style.display = 'none';
-    });
+    if (this.btnCloseEmojiPicker) {
+      this.btnCloseEmojiPicker.addEventListener('click', () => {
+        if (this.emojiPickerPopover) this.emojiPickerPopover.style.display = 'none';
+      });
+    }
 
     document.querySelectorAll('.emoji-cat-chip').forEach(chip => {
       chip.addEventListener('click', () => {
         document.querySelectorAll('.emoji-cat-chip').forEach(c => c.classList.remove('active'));
         chip.classList.add('active');
         const cat = chip.dataset.cat;
-        if (this.emojiCategories[cat]) {
+        if (this.emojiCategories && this.emojiCategories[cat]) {
           this.renderEmojis(this.emojiCategories[cat]);
         }
       });
     });
 
     // BUSCADOR DE GIFS MULTI-MOTOR
-    this.btnOpenGifPicker.addEventListener('click', () => {
-      const isVisible = this.gifPickerPopover.style.display === 'flex';
-      this.emojiPickerPopover.style.display = 'none';
-      if (!isVisible) {
-        this.gifPickerPopover.style.display = 'flex';
-        this.renderGifs(this.gifCategories.trending);
-      } else {
-        this.gifPickerPopover.style.display = 'none';
-      }
-    });
+    if (this.btnOpenGifPicker) {
+      this.btnOpenGifPicker.addEventListener('click', () => {
+        const isVisible = this.gifPickerPopover && this.gifPickerPopover.style.display === 'flex';
+        if (this.emojiPickerPopover) this.emojiPickerPopover.style.display = 'none';
+        if (this.gifPickerPopover) {
+          if (!isVisible) {
+            this.gifPickerPopover.style.display = 'flex';
+            this.renderGifs(this.gifCategories.trending);
+          } else {
+            this.gifPickerPopover.style.display = 'none';
+          }
+        }
+      });
+    }
 
-    this.btnCloseGifPicker.addEventListener('click', () => {
-      this.gifPickerPopover.style.display = 'none';
-    });
+    if (this.btnCloseGifPicker) {
+      this.btnCloseGifPicker.addEventListener('click', () => {
+        if (this.gifPickerPopover) this.gifPickerPopover.style.display = 'none';
+      });
+    }
 
-    this.btnSendDirectGif.addEventListener('click', () => {
-      const url = this.inputDirectGifUrl.value.trim();
-      if (url) {
-        window.socketManager.sendChatMessage('', url);
-        this.inputDirectGifUrl.value = '';
-        this.gifPickerPopover.style.display = 'none';
-        this.showToast('¡GIF enviado al chat! 🖼️', 'success');
-      } else {
-        this.showToast('Ingresa una URL válida de GIF.', 'warning');
-      }
-    });
+    if (this.btnSendDirectGif) {
+      this.btnSendDirectGif.addEventListener('click', () => {
+        if (!this.inputDirectGifUrl) return;
+        const url = this.inputDirectGifUrl.value.trim();
+        if (url) {
+          window.socketManager.sendChatMessage('', url);
+          this.inputDirectGifUrl.value = '';
+          if (this.gifPickerPopover) this.gifPickerPopover.style.display = 'none';
+          this.showToast('¡GIF enviado al chat! 🖼️', 'success');
+        } else {
+          this.showToast('Ingresa una URL válida de GIF.', 'warning');
+        }
+      });
+    }
 
     // SUGERENCIAS DE GIFS EN TIEMPO REAL
-    let searchTimeout = null;
-    this.inputGifSearch.addEventListener('input', (e) => {
-      clearTimeout(searchTimeout);
-      const query = e.target.value.trim().toLowerCase();
-      this.updateGifSuggestions(query);
-      searchTimeout = setTimeout(() => {
-        this.fetchGifsMultiEngine(query);
-      }, 300);
-    });
+    if (this.inputGifSearch) {
+      let searchTimeout = null;
+      this.inputGifSearch.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim().toLowerCase();
+        this.updateGifSuggestions(query);
+        searchTimeout = setTimeout(() => {
+          this.fetchGifsMultiEngine(query);
+        }, 300);
+      });
+    }
 
     // Reacciones Flotantes
     document.querySelectorAll('.btn-reaction').forEach(btn => {
@@ -567,15 +548,17 @@ class AppUI {
     });
 
     // Forzar Resync
-    this.btnResync.addEventListener('click', () => {
-      if (this.currentRoom && window.socketManager.isHost) {
-        const time = window.playerManager.getCurrentTime();
-        window.socketManager.emitMediaAction('seek', time);
-        this.showToast('Sincronización forzada enviada 🔄', 'info');
-      } else {
-        this.showToast('Sincronizando reproductor 🔄', 'info');
-      }
-    });
+    if (this.btnResync) {
+      this.btnResync.addEventListener('click', () => {
+        if (this.currentRoom && window.socketManager.isHost) {
+          const time = window.playerManager.getCurrentTime();
+          window.socketManager.emitMediaAction('seek', time);
+          this.showToast('Sincronización forzada enviada 🔄', 'info');
+        } else {
+          this.showToast('Sincronizando reproductor 🔄', 'info');
+        }
+      });
+    }
 
     // Tabs
     document.querySelectorAll('.tab-btn').forEach(tab => {
