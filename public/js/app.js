@@ -128,15 +128,12 @@ class AppUI {
     this.btnToggleFullscreen = document.getElementById('btnToggleFullscreen');
     this.playerStage = document.getElementById('playerStage');
 
-    // SALA DE VOZ DEDICADA
-    this.btnJoinVoiceRoom = document.getElementById('btnJoinVoiceRoom');
-    this.btnLeaveVoiceRoom = document.getElementById('btnLeaveVoiceRoom');
+    // SALA DE VOZ DEDICADA ESTILO RAVE
     this.voiceMembersGrid = document.getElementById('voiceMembersGrid');
-    this.voiceControlsRow = document.getElementById('voiceControlsRow');
     this.btnToggleMic = document.getElementById('btnToggleMic');
     this.voiceMicStateIcon = document.getElementById('voiceMicStateIcon');
     this.voiceMicStateLabel = document.getElementById('voiceMicStateLabel');
-    this.btnUnlockAudio = document.getElementById('btnUnlockAudio');
+    this.selectMicDevice = document.getElementById('selectMicDevice');
 
     // CONTROLES ESTILO NETFLIX DE HOST Y BARRA DE TIEMPO
     this.hostMediaBar = document.getElementById('hostMediaBar');
@@ -197,14 +194,13 @@ class AppUI {
     this.chatUnreadBadge = document.getElementById('chatUnreadBadge');
     this.unreadChatCount = 0;
 
-    // BARRA COMPACTA DE VOZ MÓVIL
+    // BARRA COMPACTA DE VOZ MÓVIL ESTILO RAVE
     this.mobileVoiceStrip = document.getElementById('mobileVoiceStrip');
     this.mobileVoiceCount = document.getElementById('mobileVoiceCount');
     this.mobileVoiceAvatars = document.getElementById('mobileVoiceAvatars');
-    this.btnMobileJoinVoice = document.getElementById('btnMobileJoinVoice');
-    this.btnMobileLeaveVoice = document.getElementById('btnMobileLeaveVoice');
     this.btnMobileToggleMic = document.getElementById('btnMobileToggleMic');
     this.mobileMicIcon = document.getElementById('mobileMicIcon');
+    this.mobileMicLabel = document.getElementById('mobileMicLabel');
 
     // CONTROL DE INACTIVIDAD & PANTALLA COMPLETA
     this.syncStatusBadge = document.getElementById('syncStatusBadge');
@@ -608,8 +604,52 @@ class AppUI {
       this.togglePlayPauseSVG(action === 'play');
     };
 
+    // Control de micrófono unificado estilo Rave
+    if (this.btnToggleMic) {
+      this.btnToggleMic.addEventListener('click', async () => {
+        const micId = this.selectMicDevice ? this.selectMicDevice.value : null;
+        const isMuted = await window.webrtcVoiceManager.toggleMic(micId);
+        this.updateMicUIState(isMuted);
+      });
+    }
+
+    if (this.btnMobileToggleMic) {
+      this.btnMobileToggleMic.addEventListener('click', async () => {
+        const micId = this.selectMicDevice ? this.selectMicDevice.value : null;
+        const isMuted = await window.webrtcVoiceManager.toggleMic(micId);
+        this.updateMicUIState(isMuted);
+      });
+    }
+
+    if (this.selectMicDevice) {
+      this.selectMicDevice.addEventListener('focus', () => {
+        window.webrtcVoiceManager.populateMicrophones(this.selectMicDevice);
+      });
+      this.selectMicDevice.addEventListener('change', async (e) => {
+        await window.webrtcVoiceManager.changeMicDevice(e.target.value);
+      });
+    }
+
     // Control de inactividad sobre el reproductor y Pantalla Completa
     this.setupStageInactivityControls();
+  }
+
+  updateMicUIState(isMuted) {
+    if (isMuted) {
+      if (this.voiceMicStateIcon) this.voiceMicStateIcon.innerText = '🎙️';
+      if (this.voiceMicStateLabel) this.voiceMicStateLabel.innerText = 'Encender Micrófono';
+      if (this.btnToggleMic) this.btnToggleMic.className = 'btn btn-sm btn-secondary';
+      if (this.mobileMicIcon) this.mobileMicIcon.innerText = '🎙️';
+      if (this.mobileMicLabel) this.mobileMicLabel.innerText = 'Encender Mic';
+      if (this.btnMobileToggleMic) this.btnMobileToggleMic.className = 'btn btn-xs btn-secondary';
+    } else {
+      if (this.voiceMicStateIcon) this.voiceMicStateIcon.innerText = '🔇';
+      if (this.voiceMicStateLabel) this.voiceMicStateLabel.innerText = 'Apagar Micrófono';
+      if (this.btnToggleMic) this.btnToggleMic.className = 'btn btn-sm btn-danger-soft';
+      if (this.mobileMicIcon) this.mobileMicIcon.innerText = '🔇';
+      if (this.mobileMicLabel) this.mobileMicLabel.innerText = 'Apagar Mic';
+      if (this.btnMobileToggleMic) this.btnMobileToggleMic.className = 'btn btn-xs btn-danger-soft';
+    }
   }
 
   setupStageInactivityControls() {
@@ -976,6 +1016,17 @@ class AppUI {
     this.updateVoiceRoomState(roomData.voiceMembers || [], roomData.users || []);
     if (roomData.user) this.updateHostControlsView(roomData.user.isHost);
 
+    // Unirse automáticamente al canal de voz estilo Rave & cargar lista de micrófonos
+    window.webrtcVoiceManager.joinVoiceRoom();
+    if (this.selectMicDevice) {
+      window.webrtcVoiceManager.populateMicrophones(this.selectMicDevice);
+    }
+
+    // Mantener pantalla del navegador siempre encendida (Web WakeLock API)
+    if ('wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').catch(() => {});
+    }
+
     // Ajustar vista
     window.dispatchEvent(new Event('resize'));
   }
@@ -1084,26 +1135,6 @@ class AppUI {
     if (users) this.updateUsersList(users);
     this.currentVoiceMembers = voiceMembers || [];
 
-    const isSelfInVoice = window.webrtcVoiceManager.inVoiceRoom;
-
-    if (isSelfInVoice) {
-      this.btnJoinVoiceRoom.style.display = 'none';
-      this.btnLeaveVoiceRoom.style.display = 'inline-flex';
-      this.voiceControlsRow.style.display = 'flex';
-
-      if (this.btnMobileJoinVoice) this.btnMobileJoinVoice.style.display = 'none';
-      if (this.btnMobileLeaveVoice) this.btnMobileLeaveVoice.style.display = 'inline-flex';
-      if (this.btnMobileToggleMic) this.btnMobileToggleMic.style.display = 'inline-flex';
-    } else {
-      this.btnJoinVoiceRoom.style.display = 'inline-flex';
-      this.btnLeaveVoiceRoom.style.display = 'none';
-      this.voiceControlsRow.style.display = 'none';
-
-      if (this.btnMobileJoinVoice) this.btnMobileJoinVoice.style.display = 'inline-flex';
-      if (this.btnMobileLeaveVoice) this.btnMobileLeaveVoice.style.display = 'none';
-      if (this.btnMobileToggleMic) this.btnMobileToggleMic.style.display = 'none';
-    }
-
     if (this.mobileVoiceCount) {
       this.mobileVoiceCount.innerText = this.currentVoiceMembers.length;
     }
@@ -1112,6 +1143,7 @@ class AppUI {
       this.mobileVoiceAvatars.innerHTML = '';
       this.currentVoiceMembers.forEach(m => {
         const span = document.createElement('span');
+        span.id = `mobile_voice_avatar_${m.socketId}`;
         span.title = m.username;
         span.style.fontSize = '1.1rem';
         span.innerText = m.avatar || '⚡';
@@ -1121,20 +1153,20 @@ class AppUI {
 
     this.voiceMembersGrid.innerHTML = '';
     if (this.currentVoiceMembers.length === 0) {
-      this.voiceMembersGrid.innerHTML = '<div class="voice-empty-state">No hay nadie en la Sala de Voz. ¡Haz clic en Unirme para hablar o escuchar!</div>';
+      this.voiceMembersGrid.innerHTML = '<div class="voice-empty-state">Canal de voz activo. Presiona Encender Micrófono para hablar.</div>';
       return;
     }
 
     this.currentVoiceMembers.forEach(m => {
       const card = document.createElement('div');
       card.id = `voice_card_${m.socketId}`;
-      card.className = `voice-member-card ${m.isSpeaking ? 'speaking-active' : ''}`;
+      card.className = `voice-member-card ${m.isSpeaking ? 'user-speaking' : ''}`;
       card.innerHTML = `
         <div class="voice-avatar-box">
           <span>${m.avatar || '⚡'}</span>
           ${m.isMuted ? '<span class="mute-badge">🎧</span>' : '<span class="live-mic-badge">🎙️</span>'}
         </div>
-        <span class="voice-member-name ${m.isSpeaking ? 'speaking-text' : ''}">${this.escapeHTML(m.username)}</span>
+        <span class="voice-member-name">${this.escapeHTML(m.username)}</span>
       `;
       this.voiceMembersGrid.appendChild(card);
     });
@@ -1143,21 +1175,21 @@ class AppUI {
   setUserSpeakingIndicator(socketId, isSpeaking) {
     const item = document.getElementById(`user_item_${socketId}`);
     const card = document.getElementById(`voice_card_${socketId}`);
+    const mobileAvatar = document.getElementById(`mobile_voice_avatar_${socketId}`);
 
     if (item) {
-      if (isSpeaking) item.classList.add('speaking-active');
-      else item.classList.remove('speaking-active');
+      if (isSpeaking) item.classList.add('user-speaking');
+      else item.classList.remove('user-speaking');
     }
 
     if (card) {
-      const nameEl = card.querySelector('.voice-member-name');
-      if (isSpeaking) {
-        card.classList.add('speaking-active');
-        if (nameEl) nameEl.classList.add('speaking-text');
-      } else {
-        card.classList.remove('speaking-active');
-        if (nameEl) nameEl.classList.remove('speaking-text');
-      }
+      if (isSpeaking) card.classList.add('user-speaking');
+      else card.classList.remove('user-speaking');
+    }
+
+    if (mobileAvatar) {
+      if (isSpeaking) mobileAvatar.classList.add('user-speaking');
+      else mobileAvatar.classList.remove('user-speaking');
     }
   }
 

@@ -106,18 +106,16 @@
       <!-- REPRODUCTOR Y CONTROLES ESTILO NETFLIX / HBO MAX -->
       <section class="player-section" id="sectionPlayer">
 
-        <!-- BARRA FLOTANTE COMPACTA DE VOZ PARA MÓVIL (Para hablar viendo la peli) -->
+        <!-- BARRA FLOTANTE COMPACTA DE VOZ PARA MÓVIL ESTILO RAVE -->
         <div class="mobile-voice-strip glass-card" id="mobileVoiceStrip">
           <div class="mobile-voice-info">
             <span class="voice-live-dot"></span>
-            <span class="mobile-voice-title">🎙️ Voz en Vivo (<strong id="mobileVoiceCount">0</strong>)</span>
+            <span class="mobile-voice-title">🎙️ Voz (<strong id="mobileVoiceCount">0</strong>)</span>
             <div class="mobile-voice-avatars" id="mobileVoiceAvatars"></div>
           </div>
           <div class="mobile-voice-actions">
-            <button class="btn btn-xs btn-primary" id="btnMobileJoinVoice">🔊 Unirme</button>
-            <button class="btn btn-xs btn-danger-soft" id="btnMobileLeaveVoice" style="display: none;">🚪 Salir</button>
-            <button class="btn btn-xs btn-secondary" id="btnMobileToggleMic" style="display: none;">
-              <span id="mobileMicIcon">🎙️</span>
+            <button class="btn btn-xs btn-secondary" id="btnMobileToggleMic">
+              <span id="mobileMicIcon">🎙️</span> <span id="mobileMicLabel">Encender Mic</span>
             </button>
           </div>
         </div>
@@ -293,34 +291,29 @@
       <!-- SIDEBAR LATERAL: CHAT & SALA DE VOZ DEDICADA -->
       <aside class="sidebar-section glass-card" id="sectionSidebar">
         
-        <!-- PANEL DEDICADO DE LA SALA DE VOZ CON ANIMACIÓN VERDE EN VIVO -->
+        <!-- PANEL DE VOZ ESTILO RAVE CON LISTA DE MICRÓFONOS E ILUMINACIÓN VERDE -->
         <div class="voice-room-panel glass-card" id="voiceRoomPanel">
           <div class="voice-panel-header">
             <div class="voice-panel-title">
               <span class="voice-live-dot"></span>
-              <strong>🎙️ Sala de Voz en Vivo</strong>
+              <strong>🎙️ Canal de Voz (Estilo Rave)</strong>
             </div>
-            <button class="btn btn-sm btn-primary" id="btnJoinVoiceRoom">
-              🔊 Unirme a la Voz
+            <button class="btn btn-sm btn-secondary" id="btnToggleMic">
+              <span id="voiceMicStateIcon">🎙️</span> <span id="voiceMicStateLabel">Encender Micrófono</span>
             </button>
-            <button class="btn btn-sm btn-danger-soft" id="btnLeaveVoiceRoom" style="display: none;">
-              🚪 Salir
-            </button>
+          </div>
+
+          <!-- SELECTOR DE DISPOSITIVOS DE MICRÓFONO -->
+          <div class="mic-select-row" id="micSelectRow">
+            <label for="selectMicDevice" class="mic-label">🎙️ Dispositivo:</label>
+            <select id="selectMicDevice" class="glass-input mic-select" title="Seleccionar Micrófono">
+              <option value="">Cargando micrófonos...</option>
+            </select>
           </div>
 
           <!-- LISTA VISUAL DE MIEMBROS EN LA SALA DE VOZ CON HALO VERDE DE HABLA -->
           <div class="voice-members-grid" id="voiceMembersGrid">
-            <div class="voice-empty-state">No hay nadie en la Sala de Voz. ¡Haz clic en Unirme para hablar o escuchar!</div>
-          </div>
-
-          <!-- CONTROLES DE MICRÓFONO Y DESBLOQUEO DE AUDIO -->
-          <div class="voice-controls-row" id="voiceControlsRow" style="display: none;">
-            <button class="btn btn-sm btn-secondary" id="btnToggleMic">
-              <span id="voiceMicStateIcon">🎙️</span> <span id="voiceMicStateLabel">Micrófono ON</span>
-            </button>
-            <button class="btn btn-sm btn-secondary" id="btnUnlockAudio" title="Desbloquear / Escuchar Voz">
-              🔊 Escuchar Voz
-            </button>
+            <div class="voice-empty-state">Canal de voz activo. Presiona Encender Micrófono para hablar.</div>
           </div>
         </div>
 

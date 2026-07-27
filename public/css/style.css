@@ -925,4 +925,63 @@ body.dark-theme {
   .stage-fullscreen-btn span { display: none; }
 }
 
+/* SELECTOR DE MICRÓFONOS Y ILUMINACIÓN VERDE DE HABLA ESTILO RAVE */
+.mic-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mic-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.mic-select {
+  flex: 1;
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  background: rgba(15, 12, 28, 0.85);
+  color: #fff;
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+}
+
+/* ANIMACIÓN NEÓN VERDE RAVE CUANDO ALGUIEN HABLA */
+.user-speaking, .voice-member-card.speaking, .user-card.speaking {
+  border: 2px solid #00ff88 !important;
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.85), inset 0 0 10px rgba(0, 255, 136, 0.4) !important;
+  animation: raveSpeakingPulse 1.2s infinite alternate !important;
+}
+
+.user-speaking .user-name, .voice-member-card.speaking .voice-member-name {
+  color: #00ff88 !important;
+  text-shadow: 0 0 8px rgba(0, 255, 136, 0.9);
+}
+
+.user-speaking .avatar-img, .voice-member-card.speaking .voice-avatar {
+  box-shadow: 0 0 14px #00ff88 !important;
+  border: 2px solid #00ff88 !important;
+}
+
+@keyframes raveSpeakingPulse {
+  0% {
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.6), inset 0 0 5px rgba(0, 255, 136, 0.2);
+    transform: scale(1.0);
+  }
+  100% {
+    box-shadow: 0 0 22px rgba(0, 255, 136, 1), inset 0 0 12px rgba(0, 255, 136, 0.6);
+    transform: scale(1.02);
+  }
+}
+
 

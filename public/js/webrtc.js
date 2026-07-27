@@ -1,7 +1,11 @@
 /**
- * WebRTCVoiceManager - Sistema de Sala de Voz en Vivo para DuoPlayX
- * Entra en modo solo oyente por defecto (0 permisos requeridos).
- * Activa micrófono únicamente al presionar el botón de micrófono.
+ * WebRTCVoiceManager - Sistema de Sala de Voz en Vivo Estilo Rave para DuoPlayX
+ * 
+ * 1. Todos los usuarios que entran a la sala escuchan automáticamente el canal de voz.
+ * 2. Cero botones de "Unirse a la sala de voz".
+ * 3. Botón único de "Encender / Apagar Micrófono".
+ * 4. Selector de Micrófonos disponibles (MediaDevices.enumerateDevices).
+ * 5. Indicador neón verde que ilumina el nombre/avatar del usuario cada vez que habla.
  */
 
 class WebRTCVoiceManager {
@@ -13,6 +17,7 @@ class WebRTCVoiceManager {
     this.isMuted = true;
     this.audioContext = null;
     this.analyser = null;
+    this.selectedMicId = null;
 
     this.rtcConfig = {
       iceServers: [
@@ -45,20 +50,50 @@ class WebRTCVoiceManager {
     }
   }
 
+  // Lista todos los micrófonos disponibles en el sistema/dispositivo
+  async populateMicrophones(selectElement) {
+    if (!selectElement) return;
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        selectElement.innerHTML = '<option value="">Micrófono por defecto</option>';
+        return;
+      }
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(d => d.kind === 'audioinput');
+
+      selectElement.innerHTML = '';
+      if (audioInputs.length === 0) {
+        selectElement.innerHTML = '<option value="">Micrófono por defecto</option>';
+        return;
+      }
+
+      audioInputs.forEach((device, index) => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.textContent = device.label || `Micrófono ${index + 1}`;
+        if (this.selectedMicId && device.deviceId === this.selectedMicId) {
+          option.selected = true;
+        }
+        selectElement.appendChild(option);
+      });
+    } catch (err) {
+      console.warn('Error enumerando micrófonos:', err);
+      selectElement.innerHTML = '<option value="">Micrófono por defecto</option>';
+    }
+  }
+
+  // Conexión automática al canal de voz al ingresar a la sala (Sin pedir micrófono)
   async joinVoiceRoom() {
     if (this.inVoiceRoom) return true;
 
     this.inVoiceRoom = true;
     this.isMuted = true;
-    this.localStream = null; // Entrar como OYENTE por defecto sin solicitar micrófono
+    this.localStream = null; // Entrar como OYENTE por defecto (0 permisos requeridos)
 
     window.socketManager.joinVoiceRoom();
     this.unlockAudio();
-
-    if (window.appUI) {
-      window.appUI.showToast('¡Te has unido a la Sala de Voz en modo Oyente! 🎧 (Presiona 🎙️ para hablar)', 'info');
-    }
-
     return true;
   }
 
@@ -83,75 +118,114 @@ class WebRTCVoiceManager {
     window.socketManager.leaveVoiceRoom();
   }
 
-  async toggleMicMute() {
-    if (!this.inVoiceRoom) return true;
+  // Cambiar dispositivo de micrófono seleccionado
+  async changeMicDevice(deviceId) {
+    this.selectedMicId = deviceId;
+    if (!this.isMuted && this.localStream) {
+      await this.turnOnMic(deviceId);
+    }
+  }
 
-    // Si aún no se ha capturado el micrófono, capturarlo ahora (se solicitará permiso)
-    if (!this.localStream) {
-      try {
-        this.localStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          },
-          video: false
-        });
-        this.isMuted = false;
-        this.initAudioAnalyser();
+  // Encender / Apagar Micrófono
+  async toggleMic(deviceId = null) {
+    if (deviceId) this.selectedMicId = deviceId;
 
-        // Enviar la pista de audio a todas las conexiones peer activas
-        const audioTrack = this.localStream.getAudioTracks()[0];
-        this.peerConnections.forEach(async (pc, targetId) => {
-          const senders = pc.getSenders();
-          const audioSender = senders.find(s => s.track?.kind === 'audio' || !s.track);
-          if (audioSender) {
-            await audioSender.replaceTrack(audioTrack);
-          } else {
-            pc.addTrack(audioTrack, this.localStream);
-          }
+    if (this.isMuted) {
+      return await this.turnOnMic(this.selectedMicId);
+    } else {
+      return this.turnOffMic();
+    }
+  }
 
-          // Iniciar renegociación si es necesario
-          try {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            window.socketManager.sendWebRTCSignal(targetId, { offer });
-          } catch (e) {
-            console.warn('Renegotiation error:', e);
-          }
-        });
+  // Encender micrófono (Solicita permiso al usuario en Web/Android)
+  async turnOnMic(deviceId = null) {
+    if (!this.inVoiceRoom) await this.joinVoiceRoom();
 
-        window.socketManager.sendSpeakingState(false, false);
-        if (window.appUI) {
-          window.appUI.showToast('¡Micrófono activado! 🎙️ Ya te escuchan.', 'success');
-        }
-        return false; // Retorna false (no silenciado)
-      } catch (e) {
-        console.error('Error al acceder al micrófono:', e);
-        if (window.appUI) {
-          window.appUI.showToast('No se pudo acceder al micrófono. Verifica los permisos de tu dispositivo.', 'warning');
-        }
-        return true;
+    try {
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(t => t.stop());
+        this.localStream = null;
       }
+
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      };
+
+      if (deviceId) {
+        audioConstraints.deviceId = { exact: deviceId };
+      }
+
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: false
+      });
+
+      this.isMuted = false;
+      this.initAudioAnalyser();
+
+      // Enviar la pista de audio a todas las conexiones peer activas
+      const audioTrack = this.localStream.getAudioTracks()[0];
+      this.peerConnections.forEach(async (pc, targetId) => {
+        const senders = pc.getSenders();
+        const audioSender = senders.find(s => s.track?.kind === 'audio' || !s.track);
+        if (audioSender) {
+          await audioSender.replaceTrack(audioTrack);
+        } else {
+          pc.addTrack(audioTrack, this.localStream);
+        }
+
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          window.socketManager.sendWebRTCSignal(targetId, { offer });
+        } catch (e) {
+          console.warn('Renegotiation offer error:', e);
+        }
+      });
+
+      window.socketManager.sendSpeakingState(false, false);
+      if (window.appUI) {
+        window.appUI.showToast('🎙️ Micrófono activado. ¡La sala te escucha!', 'success');
+      }
+      return false; // Retorna false (isMuted = false)
+    } catch (e) {
+      console.error('Error al acceder al micrófono:', e);
+      this.isMuted = true;
+      if (window.appUI) {
+        window.appUI.showToast('No se pudo acceder al micrófono. Por favor permite los permisos.', 'warning');
+      }
+      return true; // Retorna true (isMuted = true)
+    }
+  }
+
+  // Apagar micrófono
+  turnOffMic() {
+    this.isMuted = true;
+
+    if (this.localStream) {
+      this.localStream.getAudioTracks().forEach(track => {
+        track.enabled = false;
+        track.stop();
+      });
+      this.localStream = null;
     }
 
-    // Si ya existe el stream, alternar silenciamiento (Mute / Unmute)
-    this.isMuted = !this.isMuted;
-    this.localStream.getAudioTracks().forEach(track => {
-      track.enabled = !this.isMuted;
-    });
-
-    window.socketManager.sendSpeakingState(false, this.isMuted);
+    window.socketManager.sendSpeakingState(false, true);
     if (window.appUI) {
-      window.appUI.showToast(this.isMuted ? 'Micrófono silenciado 🔇' : 'Micrófono activo 🎙️', 'info');
+      window.appUI.setUserSpeakingIndicator(window.socketManager.socket.id, false);
+      window.appUI.showToast('🔇 Micrófono apagado', 'info');
     }
-    return this.isMuted;
+    return true; // Retorna true (isMuted = true)
   }
 
   syncVoicePeers(voiceMembers) {
     if (!this.inVoiceRoom) return;
 
-    const currentSocketId = window.socketManager.socket.id;
+    const currentSocketId = window.socketManager.socket?.id;
+    if (!currentSocketId) return;
+
     const voiceSocketIds = voiceMembers.map(m => m.socketId);
 
     voiceSocketIds.forEach(targetId => {
@@ -169,6 +243,7 @@ class WebRTCVoiceManager {
     });
   }
 
+  // Analizador de nivel de voz para iluminar el nombre en verde palpitante
   initAudioAnalyser() {
     if (!this.localStream) return;
     try {
@@ -183,20 +258,31 @@ class WebRTCVoiceManager {
       let lastSpeaking = false;
 
       const checkVolume = () => {
-        if (!this.inVoiceRoom || !this.analyser) return;
+        if (this.isMuted || !this.analyser) {
+          if (lastSpeaking) {
+            lastSpeaking = false;
+            window.socketManager.sendSpeakingState(false, true);
+            if (window.appUI) window.appUI.setUserSpeakingIndicator(window.socketManager.socket.id, false);
+          }
+          return;
+        }
+
         this.analyser.getByteFrequencyData(dataArray);
 
         let sum = 0;
         for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
         const average = sum / bufferLength;
-        const isSpeaking = average > 18 && !this.isMuted;
+        const isSpeaking = average > 16;
 
         if (isSpeaking !== lastSpeaking) {
           lastSpeaking = isSpeaking;
-          window.socketManager.sendSpeakingState(isSpeaking, this.isMuted);
+          window.socketManager.sendSpeakingState(isSpeaking, false);
         }
 
-        window.appUI.setUserSpeakingIndicator(window.socketManager.socket.id, isSpeaking);
+        if (window.appUI) {
+          window.appUI.setUserSpeakingIndicator(window.socketManager.socket.id, isSpeaking);
+        }
+
         requestAnimationFrame(checkVolume);
       };
 
@@ -215,7 +301,7 @@ class WebRTCVoiceManager {
     this.peerConnections.set(targetSocketId, pc);
     this.iceCandidateQueues.set(targetSocketId, []);
 
-    // Añadir Transceiver de audio bidireccional por defecto
+    // Transceiver de audio bidireccional por defecto
     pc.addTransceiver('audio', { direction: 'sendrecv' });
 
     if (this.localStream) {
