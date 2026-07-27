@@ -1066,10 +1066,10 @@ class AppUI {
     if (elIframe) elIframe.innerText = `<iframe src="${serverOrigin}?room=${roomData.roomId}" width="100%" height="650" allow="autoplay; fullscreen; microphone; camera"></iframe>`;
 
     if (roomData.media) {
-      window.playerManager.setMediaSource(roomData.media).then(() => {
-        const initialTime = roomData.mediaState ? (roomData.mediaState.calculatedTime || roomData.mediaState.currentTime || 0) : 0;
-        const isPlaying = roomData.mediaState ? !!roomData.mediaState.isPlaying : false;
-        window.playerManager.syncRemoteAction('sync', initialTime, isPlaying);
+      const isPlaying = roomData.mediaState ? !!roomData.mediaState.isPlaying : false;
+      const initialTime = roomData.mediaState ? (roomData.mediaState.calculatedTime || roomData.mediaState.currentTime || 0) : 0;
+      window.playerManager.setMediaSource(roomData.media, isPlaying).then(() => {
+        window.playerManager.syncRemoteAction(isPlaying ? 'play' : 'pause', initialTime, isPlaying);
       }).catch(err => {
         console.warn('Error al configurar media inicial:', err);
       });

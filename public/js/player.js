@@ -191,9 +191,11 @@ class PlayerManager {
   }
 
   // ─── Cargar fuente de media ───────────────────────────────────────────────
-  // ─── Cargar fuente de media ───────────────────────────────────────────────
-  async setMediaSource(media) {
+  async setMediaSource(media, autoPlay = true) {
+    if (!media) return;
+    console.log('🎬 Configurando nueva fuente multimedia:', media, 'autoPlay:', autoPlay);
     this.currentMedia = media;
+    this.showLoadingOverlay(true);
 
     // Detener reproductores previos y destruir HLS anterior
     if (this.hlsInstance) {
@@ -209,12 +211,15 @@ class PlayerManager {
     if (media.type === 'hls' || (media.url && media.url.includes('.m3u8'))) {
       this.currentType = 'hls';
       this._showContainer('mp4');
-      this._playHLSStream(media.url, media.referer);
+      this._playHLSStream(media.url, media.referer, autoPlay);
 
     } else if (media.type === 'youtube') {
       this.currentType = 'youtube';
       this._showContainer('youtube');
       await this._initYouTubePlayer(media.videoId);
+      if (!autoPlay && this.ytPlayer && this.isYTReady) {
+        this.ytPlayer.pauseVideo();
+      }
 
     } else if (media.isGDrive || media.type === 'gdrive') {
       this.currentType = 'gdrive';
@@ -245,9 +250,11 @@ class PlayerManager {
         if (window.appUI) window.appUI.showToast('✅ MP4 de Drive listo para reproducir 🎬', 'success');
       }, { once: true });
 
-      this.gdriveVideo.play().catch(err => {
-        console.log('[GDrive] Autoplay bloqueado:', err.message);
-      });
+      if (autoPlay) {
+        this.gdriveVideo.play().catch(err => console.log('[GDrive] Autoplay bloqueado:', err.message));
+      } else {
+        this.gdriveVideo.pause();
+      }
 
     } else {
       // MP4 / Pixeldrain / Enlace directo
@@ -257,13 +264,17 @@ class PlayerManager {
       this.mp4Video.setAttribute('referrerpolicy', 'no-referrer');
       this.mp4Video.src = media.url;
       this.mp4Video.load();
-      this.mp4Video.play().catch(e => console.log('[MP4] Autoplay bloqueado:', e.message));
+      if (autoPlay) {
+        this.mp4Video.play().catch(e => console.log('[MP4] Autoplay bloqueado:', e.message));
+      } else {
+        this.mp4Video.pause();
+      }
     }
 
     this.setLocalVolume(this.localVolume);
   }
 
-  _playHLSStream(hlsUrl, referer) {
+  _playHLSStream(hlsUrl, referer, autoPlay = true) {
     const proxyUrl = `/api/hls-proxy?url=${encodeURIComponent(hlsUrl)}${referer ? '&referer=' + encodeURIComponent(referer) : ''}`;
     console.log(`[HLS Player] Cargando stream via proxy: ${proxyUrl}`);
 
@@ -276,20 +287,40 @@ class PlayerManager {
       this.hlsInstance = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        maxBufferSize: 60 * 1024 * 1024,
+        maxBufferLength: 60,
+        maxMaxBufferLength: 120,
+        maxBufferSize: 90 * 1024 * 1024,
         backBufferLength: 30,
-        liveSyncDurationCount: 3
+        liveSyncDurationCount: 3,
+        nudgeMaxRetries: 10,
+        maxBufferHole: 0.5,
+        capLevelToPlayerSize: false,
+        startLevel: -1
       });
       this.hlsInstance.loadSource(proxyUrl);
       this.hlsInstance.attachMedia(this.mp4Video);
 
-      this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log('✅ Manifiesto HLS cargado con éxito');
+      this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        console.log('✅ Manifiesto HLS cargado con éxito. Niveles de calidad:', data.levels);
+        
+        // Seleccionar automáticamente la máxima calidad disponible (1080p / 720p / HD)
+        if (this.hlsInstance.levels && this.hlsInstance.levels.length > 0) {
+          const maxLevel = this.hlsInstance.levels.length - 1;
+          this.hlsInstance.currentLevel = maxLevel;
+          this.hlsInstance.loadLevel = maxLevel;
+          const selectedQual = data.levels[maxLevel];
+          if (window.appUI && selectedQual) {
+            const qualText = selectedQual.height ? `${selectedQual.height}p` : (selectedQual.bitrate ? `${Math.round(selectedQual.bitrate / 1000)}k` : 'Máxima HD');
+            window.appUI.showToast(`🎬 Calidad Seleccionada: ${qualText} ⭐`, 'success');
+          }
+        }
+
         this.showLoadingOverlay(false);
-        this.mp4Video.play().catch(e => console.log('[HLS Autoplay bloqueado]:', e.message));
-        if (window.appUI) window.appUI.showToast('✅ Película HLS lista para reproducir 🎬', 'success');
+        if (autoPlay) {
+          this.mp4Video.play().catch(e => console.log('[HLS Autoplay bloqueado]:', e.message));
+        } else {
+          this.mp4Video.pause();
+        }
       });
 
       this.hlsInstance.on(Hls.Events.ERROR, (event, data) => {
