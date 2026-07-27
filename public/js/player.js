@@ -319,7 +319,7 @@ class PlayerManager {
     this.isProgrammaticAction = true;
     try {
       if (this.currentType === 'youtube' && this.ytPlayer && this.isYTReady) {
-        if (typeof targetTime === 'number' && Math.abs(this.ytPlayer.getCurrentTime() - targetTime) > 0.8) {
+        if (typeof targetTime === 'number' && Math.abs(this.ytPlayer.getCurrentTime() - targetTime) > 3.0) {
           this.ytPlayer.seekTo(targetTime, true);
         }
         if (action === 'play'  || isPlaying === true)  this.ytPlayer.playVideo();
@@ -329,11 +329,35 @@ class PlayerManager {
         const vid = this._activeVideo();
         if (!vid) return;
 
-        if (typeof targetTime === 'number' && Math.abs(vid.currentTime - targetTime) > 0.8) {
-          vid.currentTime = targetTime;
+        if (action === 'pause' || isPlaying === false) {
+          vid.pause();
+          if (typeof targetTime === 'number' && Math.abs(vid.currentTime - targetTime) > 2.0) {
+            vid.currentTime = targetTime;
+          }
+          return;
         }
-        if (action === 'play'  || isPlaying === true)  vid.play().catch(() => {});
-        if (action === 'pause' || isPlaying === false) vid.pause();
+
+        if (typeof targetTime === 'number') {
+          const diff = targetTime - vid.currentTime;
+          // Solo hacer Hard Seek (que limpia el búfer HLS) si la diferencia supera los 3.5s o es un Seek manual explícito
+          if (action === 'seek' || Math.abs(diff) > 3.5) {
+            console.log(`[Sync Hard Seek] Ajustando tiempo por diferencia mayor a 3.5s (${diff.toFixed(2)}s)`);
+            vid.currentTime = targetTime;
+            vid.playbackRate = 1.0;
+          } else if (diff > 0.6) {
+            // Ligeramente atrasado: acelerar sutilmente (1.04x) para alcanzar al Host sin borrar el búfer
+            vid.playbackRate = 1.04;
+          } else if (diff < -0.6) {
+            // Ligeramente adelantado: desacelerar sutilmente (0.96x) para esperar al Host
+            vid.playbackRate = 0.96;
+          } else {
+            vid.playbackRate = 1.0;
+          }
+        }
+
+        if (action === 'play' || isPlaying === true) {
+          vid.play().catch(() => {});
+        }
       }
     } finally {
       setTimeout(() => { this.isProgrammaticAction = false; }, 600);

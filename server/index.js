@@ -496,6 +496,14 @@ app.get('/api/hls-proxy', async (req, res) => {
       return res.status(status === 206 ? 206 : 200).send(rewritten);
     }
 
+    req.on('close', () => {
+      try {
+        if (proxyRes && typeof proxyRes.destroy === 'function' && !proxyRes.destroyed) {
+          proxyRes.destroy();
+        }
+      } catch (eClose) {}
+    });
+
     res.writeHead(status === 206 ? 206 : 200, {
       'Content-Type': contentType,
       'Accept-Ranges': 'bytes',
