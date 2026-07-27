@@ -708,7 +708,7 @@ class AppUI {
       if (this.voiceMicStateLabel) this.voiceMicStateLabel.innerText = 'Encender Micrófono';
       if (this.btnToggleMic) this.btnToggleMic.className = 'btn btn-sm btn-secondary';
       if (this.mobileMicIcon) this.mobileMicIcon.innerText = '🎙️';
-      if (this.mobileMicLabel) this.mobileMicLabel.innerText = 'Encender Mic';
+    if (this.mobileMicLabel) this.mobileMicLabel.innerText = 'Encender Mic';
       if (this.btnMobileToggleMic) this.btnMobileToggleMic.className = 'btn btn-xs btn-secondary';
     } else {
       if (this.voiceMicStateIcon) this.voiceMicStateIcon.innerText = '🔇';
@@ -727,7 +727,8 @@ class AppUI {
 
       clearTimeout(this.inactivityTimer);
       this.inactivityTimer = setTimeout(() => {
-        const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement);
+        const stage = this.playerStage || document.getElementById('playerStage');
+        const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement) || (stage && stage.classList.contains('fullscreen-active'));
         if (isFS) {
           this.isUserActiveInStage = false;
           this.showStageFloatingUI(false);
@@ -807,7 +808,8 @@ class AppUI {
   }
 
   handleFullscreenChange() {
-    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement);
+    const stage = this.playerStage || document.getElementById('playerStage');
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement) || (stage && stage.classList.contains('fullscreen-active'));
     if (isFS) {
       this.showToast('📺 Modo Pantalla Completa activado', 'info');
       clearTimeout(this.inactivityTimer);
@@ -828,7 +830,8 @@ class AppUI {
     ];
 
     // En pantalla completa, incluir también las barras de controles inferiores
-    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement);
+    const stage = this.playerStage || document.getElementById('playerStage');
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement) || (stage && stage.classList.contains('fullscreen-active'));
     if (isFS) {
       const controlsBar = document.getElementById('timelineControlsBar');
       const bottomBar = document.querySelector('.player-bottom-bar');
@@ -1318,6 +1321,10 @@ class AppUI {
     setTimeout(() => {
       if (el.parentNode) el.parentNode.removeChild(el);
     }, 3600);
+  }
+
+  showFloatingReaction(emoji, username) {
+    this.triggerFloatingReaction(emoji);
   }
 
   updateSyncBadge(synced, text) {

@@ -329,9 +329,6 @@
           <button class="tab-btn" data-tab="tabUsers">
             👥 Participantes (<span id="userCount">0</span>)
           </button>
-          <button class="tab-btn" data-tab="tabSettings">
-            ⚙️ WordPress
-          </button>
         </div>
 
         <!-- TAB CHAT -->
@@ -407,24 +404,6 @@
         <div class="tab-content" id="tabUsers">
           <div class="users-list" id="usersList">
             <!-- Renderizado dinámico de usuarios -->
-          </div>
-        </div>
-
-        <!-- TAB WORDPRESS -->
-        <div class="tab-content" id="tabSettings">
-          <div class="wp-info-box">
-            <h4>🌐 Código para tu WordPress</h4>
-            <p>Inserta DuoPlayX en cualquier página de WordPress con este Shortcode o iFrame:</p>
-
-            <div class="code-block">
-              <pre id="codeShortcode">[duoplayx_watch_party server="http://localhost:3000"]</pre>
-              <button class="btn btn-secondary btn-xs" onclick="navigator.clipboard.writeText(document.getElementById('codeShortcode').innerText)">Copiar Shortcode</button>
-            </div>
-
-            <div class="code-block" style="margin-top: 15px;">
-              <pre id="codeIframe">&lt;iframe src="http://localhost:3000" width="100%" height="650" allow="autoplay; fullscreen; microphone; camera"&gt;&lt;/iframe&gt;</pre>
-              <button class="btn btn-secondary btn-xs" onclick="navigator.clipboard.writeText(document.getElementById('codeIframe').innerText)">Copiar iFrame</button>
-            </div>
           </div>
         </div>
 
