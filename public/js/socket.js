@@ -12,7 +12,7 @@ class SocketManager {
 
   init() {
     let serverUrl = window.location.origin;
-    if (!serverUrl || serverUrl.startsWith('file:') || serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1') || serverUrl.startsWith('capacitor:')) {
+    if (!serverUrl || serverUrl.startsWith('file:') || serverUrl.startsWith('capacitor:') || serverUrl === 'null') {
       serverUrl = 'https://duoplayx.onrender.com';
     }
 
