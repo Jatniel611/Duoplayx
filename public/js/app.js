@@ -926,8 +926,11 @@ class AppUI {
     this.headerUserName.innerText = roomData.user.username;
 
     const serverOrigin = window.location.origin;
-    document.getElementById('codeShortcode').innerText = `[duoplayx_watch_party room="${roomData.roomId}" server="${serverOrigin}"]`;
-    document.getElementById('codeIframe').innerText = `<iframe src="${serverOrigin}?room=${roomData.roomId}" width="100%" height="650" allow="autoplay; fullscreen; microphone; camera"></iframe>`;
+    const elShortcode = document.getElementById('codeShortcode');
+    if (elShortcode) elShortcode.innerText = `[duoplayx_watch_party room="${roomData.roomId}" server="${serverOrigin}"]`;
+
+    const elIframe = document.getElementById('codeIframe');
+    if (elIframe) elIframe.innerText = `<iframe src="${serverOrigin}?room=${roomData.roomId}" width="100%" height="650" allow="autoplay; fullscreen; microphone; camera"></iframe>`;
 
     if (roomData.media) {
       window.playerManager.setMediaSource(roomData.media).then(() => {
