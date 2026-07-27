@@ -342,12 +342,11 @@ class AppUI {
       window.playerManager.hostSeekTo(targetTime);
     });
 
-    // Copiar Enlace
+    // Copiar Código de Sala
     this.btnCopyInvite.addEventListener('click', () => {
       if (!this.currentRoom) return;
-      const shareUrl = `${window.location.origin}${window.location.pathname}?room=${this.currentRoom.roomId}`;
-      navigator.clipboard.writeText(shareUrl);
-      this.showToast('¡Enlace copiado al portapapeles! 📋', 'success');
+      navigator.clipboard.writeText(this.currentRoom.roomId);
+      this.showToast(`¡Código de sala (${this.currentRoom.roomId}) copiado! 📋`, 'success');
     });
 
     // CONTROLES DE LA SALA DE VOZ DEDICADA

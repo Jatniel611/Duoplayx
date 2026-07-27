@@ -10,6 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
   <link rel="stylesheet" href="css/style.css">
 
   <script src="https://www.youtube.com/iframe_api"></script>
@@ -22,7 +24,7 @@
     <!-- HEADER / NAVBAR -->
     <header class="app-header">
       <div class="logo-container">
-        <div class="logo-icon">✨</div>
+        <img src="icon.png" class="logo-icon-img" alt="DuoPlayX">
         <div class="logo-text">
           <span class="brand-name">DuoPlay<span class="accent">X</span></span>
           <span class="brand-sub">Sincronizado & Canal de Voz</span>
@@ -36,8 +38,8 @@
           <strong id="displayRoomCode">------</strong>
         </div>
 
-        <button class="btn btn-secondary btn-sm btn-icon-only-mobile" id="btnCopyInvite" title="Copiar Enlace">
-          <span>📋</span> <span class="hide-mobile">Copiar Enlace</span>
+        <button class="btn btn-secondary btn-sm btn-icon-only-mobile" id="btnCopyInvite" title="Copiar Código de Sala">
+          <span>📋</span> <span class="hide-mobile">Copiar Código</span>
         </button>
       </div>
 
@@ -54,7 +56,7 @@
       <div class="glass-card lobby-card animate-fade-in">
         <div class="lobby-header">
           <div class="hero-logo">
-            <span class="hero-icon">🎬</span>
+            <img src="icon.png" class="hero-logo-img" alt="DuoPlayX">
           </div>
           <h2>DuoPlay<span class="accent">X</span></h2>
           <p>Mira películas en simultáneo. El Host controla la reproducción y todos hablan en la Sala de Voz en vivo.</p>
