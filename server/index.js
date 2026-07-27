@@ -28,15 +28,23 @@ app.use(express.static(path.join(__dirname, '../public')));
 const driveUrlCache = new Map(); // fileId → { url, cookies, expiresAt }
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 100
+});
+
 function makeHttpsRequest(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const opts = {
       hostname: u.hostname,
+      port: u.port || 443,
       path: u.pathname + u.search,
       method: 'GET',
+      agent: httpsAgent,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': '*/*',
         ...headers
       }
@@ -290,6 +298,27 @@ async function extractHlsFromEmbed(embedUrl) {
     let html = await safeFetchHtml(targetUrl, domain);
     if (!html) {
       return { type: 'mp4', url: targetUrl };
+    }
+
+    // 0. Parsear <script type="text/json" id="data"> de Vimeus / Vimeos
+    const jsonScriptMatch = html.match(/<script[^>]*id=["']data["'][^>]*>([\s\S]*?)<\/script>/i);
+    if (jsonScriptMatch && jsonScriptMatch[1]) {
+      try {
+        const jsonData = JSON.parse(jsonScriptMatch[1].trim());
+        if (jsonData && Array.isArray(jsonData.embeds)) {
+          for (const embedObj of jsonData.embeds) {
+            if (embedObj && embedObj.url) {
+              console.log(`[Vimeus Extractor] Probando sub-embed desde #data JSON: ${embedObj.url}`);
+              const subResult = await extractHlsFromEmbed(embedObj.url);
+              if (subResult && subResult.url && subResult.url !== embedObj.url && subResult.type === 'hls') {
+                return subResult;
+              }
+            }
+          }
+        }
+      } catch (eJson) {
+        console.warn('Error al parsear #data JSON de Vimeus:', eJson.message);
+      }
     }
 
     // Desempaquetar JS de Vimeus / Vimeos / JWPlayer obfuscados

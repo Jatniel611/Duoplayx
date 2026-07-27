@@ -275,7 +275,12 @@ class PlayerManager {
       }
       this.hlsInstance = new Hls({
         enableWorker: true,
-        lowLatencyMode: true
+        lowLatencyMode: false,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        maxBufferSize: 60 * 1024 * 1024,
+        backBufferLength: 30,
+        liveSyncDurationCount: 3
       });
       this.hlsInstance.loadSource(proxyUrl);
       this.hlsInstance.attachMedia(this.mp4Video);
