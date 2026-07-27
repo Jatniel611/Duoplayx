@@ -206,6 +206,173 @@ app.get('/api/gdrive-stream/:fileId', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EXTRACTOR DE HLS / M3U8 Y PROXY DE STREAMING PARA VIMEUS / VIMEOS / PIXELDRAIN
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function extractHlsFromEmbed(embedUrl) {
+  try {
+    let targetUrl = embedUrl.trim();
+
+    // Pixeldrain /u/ID a /api/file/ID
+    if (targetUrl.includes('pixeldrain.com/u/')) {
+      const fileId = targetUrl.split('pixeldrain.com/u/')[1].split('/')[0].split('?')[0];
+      return { type: 'mp4', url: `https://pixeldrain.com/api/file/${fileId}` };
+    }
+
+    if (targetUrl.includes('.m3u8')) {
+      return { type: 'hls', url: targetUrl };
+    }
+
+    const u = new URL(targetUrl);
+    const domain = `${u.protocol}//${u.hostname}`;
+
+    const reqHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Referer': domain,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+    };
+
+    const driveRes = await makeHttpsRequest(targetUrl, reqHeaders);
+    const html = await readBody(driveRes);
+
+    // A. Coincidencia directa .m3u8
+    const m3u8Match = html.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.m3u8[^"'`\s>]*)/i);
+    if (m3u8Match) {
+      let hlsUrl = m3u8Match[1].replace(/\\/g, '');
+      return { type: 'hls', url: hlsUrl, referer: targetUrl };
+    }
+
+    // B. Coincidencia en scripts JS empaquetados
+    const packedMatch = html.match(/file:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
+                        html.match(/source:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
+                        html.match(/src:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
+                        html.match(/["'](https?:[\\\/][\\\/][^"']+\.m3u8[^"']*)["']/i);
+    if (packedMatch) {
+      let hlsUrl = packedMatch[1].replace(/\\/g, '');
+      return { type: 'hls', url: hlsUrl, referer: targetUrl };
+    }
+
+    // C. Búsqueda de iframe interno
+    const iframeMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+    if (iframeMatch) {
+      let iframeSrc = iframeMatch[1];
+      if (iframeSrc.startsWith('//')) iframeSrc = 'https:' + iframeSrc;
+      else if (iframeSrc.startsWith('/')) iframeSrc = domain + iframeSrc;
+
+      if (iframeSrc !== targetUrl) {
+        return await extractHlsFromEmbed(iframeSrc);
+      }
+    }
+
+    return { type: 'mp4', url: targetUrl };
+
+  } catch (err) {
+    console.error('[HLS Extractor Error]:', err.message);
+    return { type: 'mp4', url: embedUrl };
+  }
+}
+
+// Endpoint de resolución universal de medios
+app.post('/api/resolve-media', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL is required' });
+
+  try {
+    let cleanUrl = url.trim();
+
+    // 1. Google Drive
+    if (cleanUrl.includes('drive.google.com') || cleanUrl.includes('drive.usercontent.google.com')) {
+      const match = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || cleanUrl.match(/id=([a-zA-Z0-9_-]+)/);
+      if (match) {
+        return res.json({ type: 'gdrive', fileId: match[1], url: `/api/gdrive-stream/${match[1]}` });
+      }
+    }
+
+    // 2. YouTube
+    if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
+      return res.json({ type: 'youtube', url: cleanUrl });
+    }
+
+    // 3. Pixeldrain (convertir /u/ID a /api/file/ID)
+    if (cleanUrl.includes('pixeldrain.com')) {
+      if (cleanUrl.includes('/u/')) {
+        const fileId = cleanUrl.split('/u/')[1].split('/')[0].split('?')[0];
+        cleanUrl = `https://pixeldrain.com/api/file/${fileId}`;
+      }
+      return res.json({ type: 'mp4', url: cleanUrl });
+    }
+
+    // 4. Enlaces .m3u8 directos
+    if (cleanUrl.includes('.m3u8')) {
+      return res.json({ type: 'hls', url: cleanUrl });
+    }
+
+    // 5. Extractor HLS para embeds (vimeus.com, vimeos.net, etc.)
+    const resolved = await extractHlsFromEmbed(cleanUrl);
+    return res.json(resolved);
+
+  } catch (err) {
+    console.error('[Resolve Media Error]:', err.message);
+    res.json({ type: 'mp4', url: req.body.url });
+  }
+});
+
+// Proxy HLS para evitar bloqueos por CORS o Referer
+app.get('/api/hls-proxy', async (req, res) => {
+  const targetUrl = req.query.url;
+  const referer = req.query.referer || targetUrl;
+
+  if (!targetUrl) return res.status(400).send('URL required');
+
+  try {
+    const reqHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Referer': referer
+    };
+
+    if (req.headers.range) reqHeaders['Range'] = req.headers.range;
+
+    const proxyRes = await makeHttpsRequest(targetUrl, reqHeaders);
+    const status = proxyRes.statusCode;
+    const contentType = proxyRes.headers['content-type'] || 'application/vnd.apple.mpegurl';
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', contentType);
+
+    // Reescribir listas .m3u8 para canalizar todos los segmentos por el proxy
+    if (targetUrl.includes('.m3u8') || contentType.includes('mpegurl')) {
+      let m3u8Body = await readBody(proxyRes);
+      const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+
+      const rewritten = m3u8Body.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return line;
+
+        let absoluteSegmentUrl = trimmed;
+        if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+          absoluteSegmentUrl = new URL(trimmed, baseUrl).href;
+        }
+
+        return `/api/hls-proxy?url=${encodeURIComponent(absoluteSegmentUrl)}&referer=${encodeURIComponent(referer)}`;
+      }).join('\n');
+
+      return res.status(status === 206 ? 206 : 200).send(rewritten);
+    }
+
+    res.writeHead(status === 206 ? 206 : 200, {
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*'
+    });
+    proxyRes.pipe(res);
+
+  } catch (err) {
+    console.error('[HLS Proxy Error]:', err.message);
+    if (!res.headersSent) res.status(500).send(err.message);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SOCKET.IO — Sala de Watch Party
 // ─────────────────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {

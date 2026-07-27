@@ -145,38 +145,46 @@ class PlayerManager {
   }
 
   // ─── Cargar fuente de media ───────────────────────────────────────────────
+  // ─── Cargar fuente de media ───────────────────────────────────────────────
   async setMediaSource(media) {
     this.currentMedia = media;
 
-    // Detener reproductores previos
+    // Detener reproductores previos y destruir HLS anterior
+    if (this.hlsInstance) {
+      this.hlsInstance.destroy();
+      this.hlsInstance = null;
+    }
     if (this.mp4Video)    { this.mp4Video.pause();    this.mp4Video.src = ''; }
     if (this.gdriveVideo) { this.gdriveVideo.pause(); this.gdriveVideo.src = ''; }
     if (this.ytPlayer && this.isYTReady && typeof this.ytPlayer.pauseVideo === 'function') {
       this.ytPlayer.pauseVideo();
     }
 
-    if (media.type === 'youtube') {
+    if (media.type === 'hls' || (media.url && media.url.includes('.m3u8'))) {
+      this.currentType = 'hls';
+      this._showContainer('mp4');
+      this._playHLSStream(media.url, media.referer);
+
+    } else if (media.type === 'youtube') {
       this.currentType = 'youtube';
       this._showContainer('youtube');
       await this._initYouTubePlayer(media.videoId);
 
-    } else if (media.isGDrive) {
-      // Google Drive MP4: proxy sin conversión, seeking nativo via Range headers
+    } else if (media.isGDrive || media.type === 'gdrive') {
       this.currentType = 'gdrive';
       this._showContainer('gdrive');
 
-      const proxyUrl = `/api/gdrive-stream/${media.fileId}`;
+      const proxyUrl = media.url || `/api/gdrive-stream/${media.fileId}`;
       console.log(`[GDrive] Cargando MP4 via proxy: ${proxyUrl}`);
 
       if (window.appUI) window.appUI.showToast('🔄 Cargando MP4 de Google Drive...', 'info');
 
-      // Pre-verificación rápida para detectar cuota excedida (429) de Google Drive
       try {
         const checkRes = await fetch(proxyUrl, { method: 'HEAD' });
         if (checkRes.status === 429) {
           console.warn('[GDrive] 🛑 Cuota excedida detectada');
           if (window.appUI) {
-            window.appUI.showToast('🛑 Google Drive: Se superó la cuota diaria de descarga de este archivo. Google ha bloqueado este enlace temporalmente. Solución: Copia el archivo a tu propio Google Drive o sube otro archivo.', 'danger');
+            window.appUI.showToast('🛑 Google Drive: Se superó la cuota diaria de descarga de este archivo. Copia el archivo a tu propio Google Drive o sube otro enlace.', 'danger');
           }
           return;
         }
@@ -192,11 +200,11 @@ class PlayerManager {
       }, { once: true });
 
       this.gdriveVideo.play().catch(err => {
-        console.log('[GDrive] Autoplay bloqueado (esperando clic del usuario):', err.message);
+        console.log('[GDrive] Autoplay bloqueado:', err.message);
       });
 
     } else {
-      // MP4 / URL directa
+      // MP4 / Pixeldrain / Enlace directo
       this.currentType = 'mp4';
       this._showContainer('mp4');
       this.mp4Video.src = media.url;
@@ -205,6 +213,52 @@ class PlayerManager {
     }
 
     this.setLocalVolume(this.localVolume);
+  }
+
+  _playHLSStream(hlsUrl, referer) {
+    const proxyUrl = `/api/hls-proxy?url=${encodeURIComponent(hlsUrl)}${referer ? '&referer=' + encodeURIComponent(referer) : ''}`;
+    console.log(`[HLS Player] Cargando stream via proxy: ${proxyUrl}`);
+
+    if (window.appUI) window.appUI.showToast('🎬 Cargando película HLS / Stream en vivo...', 'info');
+
+    if (window.Hls && Hls.isSupported()) {
+      if (this.hlsInstance) {
+        this.hlsInstance.destroy();
+      }
+      this.hlsInstance = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true
+      });
+      this.hlsInstance.loadSource(proxyUrl);
+      this.hlsInstance.attachMedia(this.mp4Video);
+
+      this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('✅ Manifiesto HLS cargado con éxito');
+        this.showLoadingOverlay(false);
+        this.mp4Video.play().catch(e => console.log('[HLS Autoplay bloqueado]:', e.message));
+        if (window.appUI) window.appUI.showToast('✅ Película HLS lista para reproducir 🎬', 'success');
+      });
+
+      this.hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+        console.warn('⚠️ HLS Error:', data);
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              this.hlsInstance.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              this.hlsInstance.recoverMediaError();
+              break;
+            default:
+              this.hlsInstance.destroy();
+              break;
+          }
+        }
+      });
+    } else if (this.mp4Video.canPlayType('application/vnd.apple.mpegurl')) {
+      this.mp4Video.src = proxyUrl;
+      this.mp4Video.play().catch(e => console.log('[HLS Safari Autoplay]:', e.message));
+    }
   }
 
   // ─── Sincronizar acción remota del Host (para invitados) ─────────────────

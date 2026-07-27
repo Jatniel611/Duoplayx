@@ -20,28 +20,32 @@ class RoomManager {
     return code;
   }
 
-  parseMediaSource(url) {
-    if (!url || typeof url !== 'string') return null;
-    url = url.trim();
+  parseMediaSource(mediaInput) {
+    if (!mediaInput) return null;
 
-    // 1. Google Drive: Ruteo Seguro al Proxy Local /api/gdrive-stream/ (100% Sincronizado en HTML5)
+    if (typeof mediaInput === 'object') {
+      return mediaInput;
+    }
+
+    if (typeof mediaInput !== 'string') return null;
+    let url = mediaInput.trim();
+
+    // 1. Google Drive
     const gdriveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/;
     const gdriveMatch = url.match(gdriveRegex);
 
     if (gdriveMatch && gdriveMatch[1]) {
       const fileId = gdriveMatch[1];
-      const proxyStreamUrl = `/api/gdrive-stream/${fileId}`;
-
       return {
-        type: 'mp4',
-        url: proxyStreamUrl,
+        type: 'gdrive',
+        url: `/api/gdrive-stream/${fileId}`,
         rawUrl: url,
         fileId: fileId,
         isGDrive: true
       };
     }
 
-    // 2. Detección de YouTube
+    // 2. YouTube
     const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
     const ytMatch = url.match(ytRegex);
 
@@ -49,9 +53,23 @@ class RoomManager {
       return { type: 'youtube', url: url, videoId: ytMatch[1] };
     }
 
-    // 3. Detección de MP4 u otros formatos directos
-    if (url.match(/\.(mp4|webm|ogv|mov)(\?.*)?$/i) || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) {
-      return { type: 'mp4', url: url, videoId: null };
+    // 3. Pixeldrain (convertir /u/ID a /api/file/ID)
+    if (url.includes('pixeldrain.com')) {
+      if (url.includes('/u/')) {
+        const fileId = url.split('/u/')[1].split('/')[0].split('?')[0];
+        url = `https://pixeldrain.com/api/file/${fileId}`;
+      }
+      return { type: 'mp4', url: url };
+    }
+
+    // 4. Enlaces HLS .m3u8
+    if (url.includes('.m3u8')) {
+      return { type: 'hls', url: url };
+    }
+
+    // 5. Detección de MP4 u otros formatos directos (incluyendo enlaces API como pixeldrain.com/api/file/...)
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) {
+      return { type: 'mp4', url: url };
     }
 
     return null;

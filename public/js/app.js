@@ -275,13 +275,32 @@ class AppUI {
       }
 
       const url = this.inputMediaUrl.value.trim();
-      if (!url) return this.showToast('Ingresa una URL válida de YouTube, Google Drive o MP4.', 'warning');
+      if (!url) return this.showToast('Ingresa una URL válida de YouTube, Google Drive, Pixeldrain o Servidor Embed.', 'warning');
+
+      this.showToast('🔍 Extrayendo fuente de video / HLS...', 'info');
 
       try {
-        await window.socketManager.emitChangeMedia(url);
+        const res = await fetch('/api/resolve-media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const mediaData = await res.json();
+
+        if (mediaData && mediaData.error) {
+          return this.showToast(mediaData.error, 'danger');
+        }
+
+        await window.socketManager.emitChangeMedia(mediaData || url);
         this.inputMediaUrl.value = '';
       } catch (err) {
-        this.showToast(err, 'danger');
+        console.error('Error al resolver fuente de video:', err);
+        try {
+          await window.socketManager.emitChangeMedia(url);
+          this.inputMediaUrl.value = '';
+        } catch (e) {
+          this.showToast(e, 'danger');
+        }
       }
     });
 
