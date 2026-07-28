@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const https = require('https');
+const zlib = require('zlib');
 const roomManager = require('./roomManager');
 
 const app = express();
@@ -17,40 +18,36 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PROXY DE GOOGLE DRIVE — Solo MP4 (no requiere conversión)
-// Resuelve URL final (UUID/confirm tokens) con caché, reenvía Range headers
-// para que el navegador pueda hacer seeking nativo en el elemento <video>
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Caché de URL final resuelta por fileId (evita re-resolver en cada Range request)
-// TTL: 4 horas (las URLs de Drive expiran, pero tienen vida larga)
-const driveUrlCache = new Map(); // fileId → { url, cookies, expiresAt }
+// Caché de URL final resuelta por fileId
+const driveUrlCache = new Map();
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
-const httpsAgent = new https.Agent({
-  keepAlive: true,
-  keepAliveMsecs: 30000,
-  maxSockets: 100
-});
+const httpAgent = new http.Agent({ keepAlive: true, keepAliveMsecs: 30000, maxSockets: 100 });
+const httpsAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: 30000, maxSockets: 100 });
 
-function makeHttpsRequest(url, headers = {}, maxRedirects = 4) {
+function makeHttpsRequest(url, headers = {}, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
     if (maxRedirects < 0) return reject(new Error('Demasiados redireccionamientos HTTP'));
     const u = new URL(url);
+    const isHttps = u.protocol === 'https:';
+    const client = isHttps ? https : http;
+    const agent = isHttps ? httpsAgent : httpAgent;
+
     const opts = {
       hostname: u.hostname,
-      port: u.port || (u.protocol === 'https:' ? 443 : 80),
+      port: u.port || (isHttps ? 443 : 80),
       path: u.pathname + u.search,
       method: 'GET',
-      agent: httpsAgent,
+      agent: agent,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate',
         ...headers
-      }
+      },
+      timeout: 15000
     };
-    const r = https.request(opts, (res) => {
+    const r = client.request(opts, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         try {
           const redirectUrl = new URL(res.headers.location, url).href;
@@ -61,16 +58,25 @@ function makeHttpsRequest(url, headers = {}, maxRedirects = 4) {
       }
       resolve(res);
     });
+    r.on('timeout', () => { r.destroy(); reject(new Error('HTTP Request Timeout')); });
     r.on('error', reject);
     r.end();
   });
 }
 
 function readBody(res) {
-  return new Promise(resolve => {
-    let d = '';
-    res.on('data', c => d += c);
-    res.on('end', () => resolve(d));
+  return new Promise((resolve) => {
+    const encoding = res.headers['content-encoding'];
+    let stream = res;
+    if (encoding === 'gzip') {
+      stream = res.pipe(zlib.createGunzip());
+    } else if (encoding === 'deflate') {
+      stream = res.pipe(zlib.createDeflate());
+    }
+    const chunks = [];
+    stream.on('data', c => chunks.push(c));
+    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    stream.on('error', () => resolve(Buffer.concat(chunks).toString('utf-8')));
   });
 }
 
@@ -471,19 +477,27 @@ app.get('/api/hls-proxy', async (req, res) => {
 
     const proxyRes = await makeHttpsRequest(targetUrl, reqHeaders);
     const status = proxyRes.statusCode;
-    const contentType = proxyRes.headers['content-type'] || 'application/vnd.apple.mpegurl';
-
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', contentType);
+    let contentType = proxyRes.headers['content-type'] || '';
 
     // Reescribir listas .m3u8 para canalizar todos los segmentos por el proxy
-    if (targetUrl.includes('.m3u8') || contentType.includes('mpegurl')) {
+    if (targetUrl.includes('.m3u8') || contentType.includes('mpegurl') || contentType.includes('application/x-mpegurl')) {
       let m3u8Body = await readBody(proxyRes);
       const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
 
       const rewritten = m3u8Body.split('\n').map(line => {
         const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) return line;
+        if (!trimmed) return line;
+
+        // Reescribir URIs en etiquetas como #EXT-X-KEY o #EXT-X-MAP
+        if (trimmed.startsWith('#')) {
+          if (trimmed.includes('URI="')) {
+            return trimmed.replace(/URI="([^"]+)"/g, (match, uri) => {
+              let abs = uri.startsWith('http') ? uri : new URL(uri, baseUrl).href;
+              return `URI="/api/hls-proxy?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(referer)}"`;
+            });
+          }
+          return line;
+        }
 
         let absoluteSegmentUrl = trimmed;
         if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
@@ -493,7 +507,13 @@ app.get('/api/hls-proxy', async (req, res) => {
         return `/api/hls-proxy?url=${encodeURIComponent(absoluteSegmentUrl)}&referer=${encodeURIComponent(referer)}`;
       }).join('\n');
 
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       return res.status(status === 206 ? 206 : 200).send(rewritten);
+    }
+
+    if (!contentType || contentType.includes('mpegurl')) {
+      contentType = targetUrl.includes('.m4s') ? 'video/iso.segment' : 'video/mp2t';
     }
 
     req.on('close', () => {

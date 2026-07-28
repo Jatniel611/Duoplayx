@@ -17,7 +17,7 @@ class WebRTCVoiceManager {
     this.isMuted = true;
     this.audioContext = null;
     this.analyser = null;
-    this._analyserTimerId = null; // Controlar loop de volumen
+    this._analyserTimerId = null;
     this.selectedMicId = null;
 
     this.rtcConfig = {
@@ -38,13 +38,11 @@ class WebRTCVoiceManager {
     window.addEventListener('touchstart', unlock, { once: false });
   }
 
-  // ─── Desbloqueo unificado de audio (local analyser + remote audio elements) ───
+  // ─── Desbloqueo unificado de audio ──────────────────────────────────────────
   unlockAudio() {
-    // Reanudar AudioContext del analizador de micrófono local
     if (this.audioContext && this.audioContext.state === 'suspended') {
       this.audioContext.resume().catch(() => {});
     }
-    // Reanudar y reproducir todos los elementos <audio> de peers remotos
     document.querySelectorAll('audio[id^="audio_peer_"]').forEach(el => {
       el.muted = false;
       el.volume = 1.0;
@@ -52,7 +50,6 @@ class WebRTCVoiceManager {
     });
   }
 
-  // Lista todos los micrófonos disponibles en el sistema/dispositivo
   async populateMicrophones(selectElement) {
     if (!selectElement) return;
 
@@ -86,13 +83,12 @@ class WebRTCVoiceManager {
     }
   }
 
-  // Conexión automática al canal de voz al ingresar a la sala (Sin pedir micrófono)
   async joinVoiceRoom() {
     if (this.inVoiceRoom) return true;
 
     this.inVoiceRoom = true;
     this.isMuted = true;
-    this.localStream = null; // Entrar como OYENTE por defecto (0 permisos requeridos)
+    this.localStream = null;
 
     window.socketManager.joinVoiceRoom();
     this.unlockAudio();
@@ -121,7 +117,6 @@ class WebRTCVoiceManager {
     window.socketManager.leaveVoiceRoom();
   }
 
-  // Cambiar dispositivo de micrófono seleccionado
   async changeMicDevice(deviceId) {
     this.selectedMicId = deviceId;
     if (!this.isMuted && this.localStream) {
@@ -129,7 +124,6 @@ class WebRTCVoiceManager {
     }
   }
 
-  // Encender / Apagar Micrófono
   async toggleMic(deviceId = null) {
     if (deviceId) this.selectedMicId = deviceId;
 
@@ -140,7 +134,6 @@ class WebRTCVoiceManager {
     }
   }
 
-  // Encender micrófono (Solicita permiso al usuario en Web/Android)
   async turnOnMic(deviceId = null) {
     if (!this.inVoiceRoom) await this.joinVoiceRoom();
 
@@ -187,7 +180,12 @@ class WebRTCVoiceManager {
           pc.addTrack(audioTrack, this.localStream);
         }
 
-        // Solo renegociar si estamos en estado estable
+        // Asegurar que la dirección es sendrecv
+        const transceiver = pc.getTransceivers().find(t => t.receiver.track.kind === 'audio');
+        if (transceiver) {
+          transceiver.direction = 'sendrecv';
+        }
+
         if (pc.signalingState === 'stable') {
           try {
             const offer = await pc.createOffer();
@@ -203,18 +201,17 @@ class WebRTCVoiceManager {
       if (window.appUI) {
         window.appUI.showToast('🎙️ Micrófono activado. ¡La sala te escucha!', 'success');
       }
-      return false; // Retorna false (isMuted = false)
+      return false;
     } catch (e) {
       console.error('Error al acceder al micrófono:', e);
       this.isMuted = true;
       if (window.appUI) {
         window.appUI.showToast('No se pudo acceder al micrófono. Por favor permite los permisos.', 'warning');
       }
-      return true; // Retorna true (isMuted = true)
+      return true;
     }
   }
 
-  // Apagar micrófono
   turnOffMic() {
     this.isMuted = true;
     this._stopAnalyser();
@@ -227,12 +224,21 @@ class WebRTCVoiceManager {
       this.localStream = null;
     }
 
+    // Reemplazar tracks por null en las conexiones peer
+    this.peerConnections.forEach(async (pc) => {
+      const senders = pc.getSenders();
+      const audioSender = senders.find(s => s.track?.kind === 'audio');
+      if (audioSender) {
+        try { await audioSender.replaceTrack(null); } catch (e) {}
+      }
+    });
+
     window.socketManager.sendSpeakingState(false, true);
     if (window.appUI) {
       window.appUI.setUserSpeakingIndicator(window.socketManager.socket.id, false);
       window.appUI.showToast('🔇 Micrófono apagado', 'info');
     }
-    return true; // Retorna true (isMuted = true)
+    return true;
   }
 
   syncVoicePeers(voiceMembers) {
@@ -245,7 +251,9 @@ class WebRTCVoiceManager {
 
     voiceSocketIds.forEach(targetId => {
       if (targetId !== currentSocketId && !this.peerConnections.has(targetId)) {
-        this._createPeerConnection(targetId, true);
+        // Deterministic tie-breaking: solo un peer inicia la conexión (evita glare/colisión SDP)
+        const isInitiator = currentSocketId < targetSocketId;
+        this._createPeerConnection(targetId, isInitiator);
       }
     });
 
@@ -258,9 +266,9 @@ class WebRTCVoiceManager {
     });
   }
 
-  // ─── Analizador de nivel de voz ─────────────────────────────────────────────
+  // ─── Analizador de volumen ────────────────────────────────────────────────
   _startAnalyser() {
-    this._stopAnalyser(); // Limpiar loop anterior si existe
+    this._stopAnalyser();
 
     if (!this.localStream) return;
     try {
@@ -320,7 +328,7 @@ class WebRTCVoiceManager {
     this.analyser = null;
   }
 
-  // ─── Crear conexión WebRTC con un peer ──────────────────────────────────────
+  // ─── Crear conexión WebRTC con peer ─────────────────────────────────────────
   async _createPeerConnection(targetSocketId, isInitiator) {
     if (this.peerConnections.has(targetSocketId)) {
       return this.peerConnections.get(targetSocketId);
@@ -330,7 +338,6 @@ class WebRTCVoiceManager {
     this.peerConnections.set(targetSocketId, pc);
     this.iceCandidateQueues.set(targetSocketId, []);
 
-    // Transceiver de audio bidireccional por defecto
     pc.addTransceiver('audio', { direction: 'sendrecv' });
 
     if (this.localStream) {
@@ -346,6 +353,7 @@ class WebRTCVoiceManager {
     }
 
     pc.ontrack = (event) => {
+      console.log(`📡 [ontrack] Recibida pista remota de ${targetSocketId}`);
       const stream = event.streams?.[0] || (event.track ? new MediaStream([event.track]) : null);
       if (stream) {
         this._attachRemoteAudio(targetSocketId, stream);
@@ -356,10 +364,6 @@ class WebRTCVoiceManager {
       if (event.candidate) {
         window.socketManager.sendWebRTCSignal(targetSocketId, { candidate: event.candidate });
       }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      console.log(`[WebRTC] ICE state con ${targetSocketId}: ${pc.iceConnectionState}`);
     };
 
     if (isInitiator) {
@@ -375,13 +379,29 @@ class WebRTCVoiceManager {
     return pc;
   }
 
-  // ─── Vincular audio remoto (SOLO via <audio> HTML5, sin doble WebAudio) ────
+  // ─── Verificar y conectar receptores de audio ──────────────────────────────
+  _checkAndAttachReceivers(senderSocketId, pc) {
+    if (!pc) return;
+    try {
+      const receivers = pc.getReceivers();
+      receivers.forEach(r => {
+        if (r.track && r.track.kind === 'audio') {
+          const stream = new MediaStream([r.track]);
+          this._attachRemoteAudio(senderSocketId, stream);
+        }
+      });
+    } catch (e) {
+      console.warn('Error verificando receivers:', e);
+    }
+  }
+
+  // ─── Vincular elemento <audio> HTML5 con eventos de unmute ─────────────────
   _attachRemoteAudio(targetSocketId, stream) {
     if (!targetSocketId || !stream) return;
-    console.log(`🔊 Vinculando audio remoto de ${targetSocketId}`);
 
     let audioEl = document.getElementById(`audio_peer_${targetSocketId}`);
     if (!audioEl) {
+      console.log(`🔊 Creando elemento <audio> para peer ${targetSocketId}`);
       audioEl = document.createElement('audio');
       audioEl.id = `audio_peer_${targetSocketId}`;
       audioEl.autoplay = true;
@@ -390,13 +410,24 @@ class WebRTCVoiceManager {
       document.body.appendChild(audioEl);
     }
 
-    // Asegurar que todos los tracks de audio están habilitados
-    stream.getAudioTracks().forEach(t => { t.enabled = true; });
+    const audioTracks = stream.getAudioTracks();
+    audioTracks.forEach(track => {
+      track.enabled = true;
+      track.onunmute = () => {
+        console.log(`🔊 [Audio Unmuted] Reproduciendo audio de ${targetSocketId}`);
+        audioEl.muted = false;
+        audioEl.volume = 1.0;
+        audioEl.play().catch(() => {});
+      };
+    });
 
     audioEl.srcObject = stream;
     audioEl.muted = false;
     audioEl.volume = 1.0;
-    audioEl.play().catch(e => console.warn(`[Audio Peer ${targetSocketId}] Autoplay diferido:`, e.message));
+    const p = audioEl.play();
+    if (p && p.catch) {
+      p.catch(e => console.warn(`[Audio Peer ${targetSocketId}] Autoplay diferido:`, e.message));
+    }
   }
 
   _removePeerAudio(socketId) {
@@ -407,7 +438,7 @@ class WebRTCVoiceManager {
     }
   }
 
-  // ─── Manejo de señalización WebRTC entrante ─────────────────────────────────
+  // ─── Manejo de señalización WebRTC ──────────────────────────────────────────
   async handleIncomingSignal(senderSocketId, signal) {
     if (!this.inVoiceRoom) return;
 
@@ -418,7 +449,6 @@ class WebRTCVoiceManager {
 
     try {
       if (signal.offer) {
-        // Protección contra glare: si ya tenemos una oferta local, hacer rollback
         if (pc.signalingState === 'have-local-offer') {
           await pc.setLocalDescription({ type: 'rollback' });
         }
@@ -427,11 +457,13 @@ class WebRTCVoiceManager {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         window.socketManager.sendWebRTCSignal(senderSocketId, { answer });
+        this._checkAndAttachReceivers(senderSocketId, pc);
 
       } else if (signal.answer) {
         if (pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
           this._processPendingCandidates(senderSocketId, pc);
+          this._checkAndAttachReceivers(senderSocketId, pc);
         }
 
       } else if (signal.candidate) {

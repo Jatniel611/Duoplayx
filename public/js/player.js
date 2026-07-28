@@ -45,32 +45,51 @@ class PlayerManager {
   _bindHTML5Events(videoEl) {
     if (!videoEl) return;
 
-    videoEl.addEventListener('loadstart', () => this.showLoadingOverlay(true, 'Cargando película...'));
-    videoEl.addEventListener('waiting',   () => this.showLoadingOverlay(true, 'Almacenando en búfer...'));
-    videoEl.addEventListener('seeking',   () => this.showLoadingOverlay(true, 'Sincronizando tiempo...'));
-    videoEl.addEventListener('canplay',   () => this.showLoadingOverlay(false));
-    videoEl.addEventListener('playing',   () => this.showLoadingOverlay(false));
-    videoEl.addEventListener('seeked',    () => this.showLoadingOverlay(false));
+    let bufferTimer = null;
 
-    // timeupdate ya no actualiza slider (el setInterval de _startProgressTracker lo hace cada 500ms)
-    // Esto elimina 4-6 actualizaciones DOM innecesarias por segundo
+    videoEl.addEventListener('loadstart', () => this.showLoadingOverlay(true, 'Cargando película...'));
+
+    videoEl.addEventListener('waiting', () => {
+      clearTimeout(bufferTimer);
+      // Solo mostrar cartel de almacenamiento en búfer si la pausa dura MÁS DE 1.5 SEGUNDOS
+      bufferTimer = setTimeout(() => {
+        if (!videoEl.paused && videoEl.readyState < 3) {
+          this.showLoadingOverlay(true, 'Almacenando en búfer...');
+        }
+      }, 1500);
+    });
+
+    videoEl.addEventListener('seeking', () => {
+      clearTimeout(bufferTimer);
+      this.showLoadingOverlay(true, 'Sincronizando tiempo...');
+    });
+
+    const hideOverlay = () => {
+      clearTimeout(bufferTimer);
+      this.showLoadingOverlay(false);
+    };
+
+    videoEl.addEventListener('canplay', hideOverlay);
+    videoEl.addEventListener('playing', hideOverlay);
+    videoEl.addEventListener('seeked', hideOverlay);
 
     videoEl.addEventListener('play', () => {
-      this.showLoadingOverlay(false);
+      hideOverlay();
       if (this.isProgrammaticAction || !window.socketManager?.isHost) return;
       if (this.onLocalActionCallback) this.onLocalActionCallback('play', videoEl.currentTime);
     });
 
     videoEl.addEventListener('pause', () => {
+      hideOverlay();
       if (this.isProgrammaticAction || !window.socketManager?.isHost) return;
       if (this.onLocalActionCallback) this.onLocalActionCallback('pause', videoEl.currentTime);
     });
 
     videoEl.addEventListener('error', () => {
-      this.showLoadingOverlay(false);
+      hideOverlay();
       const err = videoEl.error;
       console.error('[Video Error]', err ? `code=${err.code}` : 'desconocido');
-      if (window.appUI) window.appUI.showToast('⚠️ Error cargando el video. Comprueba que el archivo es MP4 y está compartido públicamente.', 'danger');
+      if (window.appUI) window.appUI.showToast('⚠️ Error cargando el video. Comprueba que el enlace está activo.', 'danger');
     });
 
     videoEl.addEventListener('canplay', () => {
