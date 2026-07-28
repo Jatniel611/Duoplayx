@@ -544,11 +544,17 @@ class PlayerManager {
     return vid ? (isNaN(vid.duration) ? 0 : (vid.duration || 0)) : 0;
   }
 
-  // ─── Tracker de progreso 500ms ─────────────────────────────────────────────
+  // ─── Tracker de progreso 500ms y Detección Automática de Búfer ──────────────
   _startProgressTracker() {
+    let lastTime = 0;
+    let stallTicks = 0;
+    let isStalled = false;
+
     setInterval(() => {
       if (!window.appUI) return;
-      window.appUI.updateSliderProgress(this.getCurrentTime(), this.getDuration());
+      const curTime = this.getCurrentTime();
+      const dur = this.getDuration();
+      window.appUI.updateSliderProgress(curTime, dur);
 
       let isPlaying = false;
       if (this.currentType === 'youtube' && this.ytPlayer && this.isYTReady) {
@@ -558,6 +564,39 @@ class PlayerManager {
         if (vid) isPlaying = !vid.paused && !vid.ended && vid.readyState >= 2;
       }
       window.appUI.togglePlayPauseSVG(isPlaying);
+
+      // Detección en tiempo real de estancamiento de búfer
+      const vid = this._activeVideo();
+      if (vid && !vid.paused && !vid.ended) {
+        if (Math.abs(curTime - lastTime) < 0.05) {
+          stallTicks++;
+          if (stallTicks >= 2 && !isStalled) {
+            isStalled = true;
+            console.warn('⚠️ Reproductor estancado en búfer.');
+            if (window.socketManager?.isHost && !this.isProgrammaticAction) {
+              window.socketManager.emitMediaAction('pause', curTime);
+            }
+          }
+        } else {
+          if (isStalled) {
+            isStalled = false;
+            console.log('✅ Reproducción reanudada tras búfer.');
+            if (window.socketManager) {
+              if (!window.socketManager.isHost) {
+                console.log('🔄 Auto-sincronizando invitado tras recuperar búfer...');
+                window.socketManager.requestHostSync();
+              } else if (!this.isProgrammaticAction) {
+                window.socketManager.emitMediaAction('play', curTime);
+              }
+            }
+          }
+          stallTicks = 0;
+        }
+      } else {
+        stallTicks = 0;
+        isStalled = false;
+      }
+      lastTime = curTime;
     }, 500);
   }
 }
