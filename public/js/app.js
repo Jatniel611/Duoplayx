@@ -1306,18 +1306,66 @@ class AppUI {
       return;
     }
 
+    const mySocketId = window.socketManager.socket?.id;
+
     this.currentVoiceMembers.forEach(m => {
       const card = document.createElement('div');
       card.id = `voice_card_${m.socketId}`;
       card.className = `voice-member-card ${m.isSpeaking ? 'user-speaking' : ''}`;
+
+      let listenBtnHTML = '';
+      if (m.socketId !== mySocketId) {
+        const isMuted = window.webrtcVoiceManager.isPeerMuted(m.socketId);
+        listenBtnHTML = `
+          <div class="voice-peer-controls">
+            <button class="btn btn-xs ${isMuted ? 'btn-secondary' : 'btn-primary'}" id="btn_listen_${m.socketId}" title="Haz clic para escuchar o silenciar la voz de ${this.escapeHTML(m.username)}">
+              ${isMuted ? '🔇 Activar Voz' : '🔊 Escuchando'}
+            </button>
+            <input type="range" class="voice-peer-slider" id="slider_vol_${m.socketId}" min="0" max="100" value="100" title="Volumen de ${this.escapeHTML(m.username)}">
+          </div>
+        `;
+      }
+
       card.innerHTML = `
         <div class="voice-avatar-box">
           <span>${m.avatar || '⚡'}</span>
           ${m.isMuted ? '<span class="mute-badge">🎧</span>' : '<span class="live-mic-badge">🎙️</span>'}
         </div>
         <span class="voice-member-name">${this.escapeHTML(m.username)}</span>
+        ${listenBtnHTML}
       `;
+
       this.voiceMembersGrid.appendChild(card);
+
+      if (m.socketId !== mySocketId) {
+        const btnListen = card.querySelector(`#btn_listen_${m.socketId}`);
+        const sliderVol = card.querySelector(`#slider_vol_${m.socketId}`);
+
+        if (btnListen) {
+          btnListen.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const audioEl = document.getElementById(`audio_peer_${m.socketId}`);
+            if (audioEl && !audioEl.muted) {
+              window.webrtcVoiceManager.mutePeerAudio(m.socketId);
+              btnListen.className = 'btn btn-xs btn-secondary';
+              btnListen.innerText = '🔇 Silenciado';
+              this.showToast(`🔇 Silenciaste a ${m.username}`, 'info');
+            } else {
+              window.webrtcVoiceManager.unmutePeerAudio(m.socketId);
+              btnListen.className = 'btn btn-xs btn-primary';
+              btnListen.innerText = '🔊 Escuchando';
+              this.showToast(`🔊 Escuchando la voz de ${m.username}`, 'success');
+            }
+          });
+        }
+
+        if (sliderVol) {
+          sliderVol.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            window.webrtcVoiceManager.setPeerVolume(m.socketId, val);
+          });
+        }
+      }
     });
   }
 

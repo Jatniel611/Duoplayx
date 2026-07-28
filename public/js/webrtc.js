@@ -471,6 +471,56 @@ class WebRTCVoiceManager {
     }
   }
 
+  togglePeerAudio(socketId) {
+    const audioEl = document.getElementById(`audio_peer_${socketId}`);
+    if (!audioEl) return false;
+
+    if (audioEl.muted) {
+      return this.unmutePeerAudio(socketId);
+    } else {
+      return this.mutePeerAudio(socketId);
+    }
+  }
+
+  unmutePeerAudio(socketId) {
+    const audioEl = document.getElementById(`audio_peer_${socketId}`);
+    if (!audioEl) return true;
+
+    audioEl.muted = false;
+    if (!audioEl.volume || audioEl.volume === 0) audioEl.volume = 1.0;
+    const p = audioEl.play();
+    if (p && typeof p.then === 'function') {
+      p.catch(e => console.warn(`Error desbloqueando audio de ${socketId}:`, e));
+    }
+    return true;
+  }
+
+  mutePeerAudio(socketId) {
+    const audioEl = document.getElementById(`audio_peer_${socketId}`);
+    if (!audioEl) return false;
+
+    audioEl.muted = true;
+    return false;
+  }
+
+  setPeerVolume(socketId, volumePercent) {
+    const audioEl = document.getElementById(`audio_peer_${socketId}`);
+    if (!audioEl) return;
+
+    const vol = Math.max(0, Math.min(1, volumePercent / 100));
+    audioEl.volume = vol;
+    if (vol > 0 && audioEl.muted) {
+      audioEl.muted = false;
+      audioEl.play().catch(() => {});
+    }
+  }
+
+  isPeerMuted(socketId) {
+    const audioEl = document.getElementById(`audio_peer_${socketId}`);
+    if (!audioEl) return false;
+    return audioEl.muted;
+  }
+
   async handleIncomingSignal(senderSocketId, signal) {
     this.inVoiceRoom = true;
 
