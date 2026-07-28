@@ -120,6 +120,10 @@ class SocketManager {
       window.appUI.showFloatingReaction(data.emoji, data.user?.username || data.username);
     });
 
+    this.socket.on('chat_message_reaction_updated', (data) => {
+      window.appUI.updateChatMessageReactions(data.msgId, data.reactions);
+    });
+
     this.socket.on('error_message', (data) => {
       window.appUI.showToast(data.message, 'danger');
     });
@@ -231,6 +235,15 @@ class SocketManager {
     if (!this.currentRoomId) return;
     this.socket.emit('send_reaction', {
       roomId: this.currentRoomId,
+      emoji
+    });
+  }
+
+  sendChatMessageReaction(msgId, emoji) {
+    if (!this.currentRoomId || !msgId) return;
+    this.socket.emit('react_to_chat_message', {
+      roomId: this.currentRoomId,
+      msgId,
       emoji
     });
   }

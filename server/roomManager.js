@@ -321,6 +321,27 @@ class RoomManager {
     return message;
   }
 
+  toggleMessageReaction(roomId, msgId, emoji, username) {
+    const room = this.getRoom(roomId);
+    if (!room) return null;
+
+    const msg = room.chatHistory.find(m => m.id === msgId);
+    if (!msg) return null;
+
+    if (!msg.reactions) msg.reactions = {};
+    if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+
+    const idx = msg.reactions[emoji].indexOf(username);
+    if (idx !== -1) {
+      msg.reactions[emoji].splice(idx, 1);
+      if (msg.reactions[emoji].length === 0) delete msg.reactions[emoji];
+    } else {
+      msg.reactions[emoji].push(username);
+    }
+
+    return { msgId, reactions: msg.reactions };
+  }
+
   getUsersList(room) {
     if (!room || !room.users) return [];
     return Array.from(room.users.values());

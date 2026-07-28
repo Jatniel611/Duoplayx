@@ -1136,41 +1136,75 @@ class AppUI {
   }
 
   appendChatMessage(msg) {
-    const bubble = document.createElement('div');
-    bubble.className = `chat-bubble ${msg.type === 'system' ? 'system' : ''}`;
+    if (!msg) return;
+    const msgId = msg.id || ('msg_' + Date.now() + Math.random().toString(36).substr(2, 4));
 
-    if (msg.type === 'system') {
-      bubble.innerHTML = `<span class="chat-text">${msg.text}</span>`;
-    } else {
-      let content = '';
-      if (msg.text) {
-        content += `<div class="chat-text">${this.escapeHTML(msg.text)}</div>`;
+    const createBubbleElement = (isFloating = false) => {
+      const bubble = document.createElement('div');
+      bubble.className = `chat-bubble ${msg.type === 'system' ? 'system' : ''}`;
+      bubble.dataset.msgId = msgId;
+
+      if (msg.type === 'system') {
+        bubble.innerHTML = `<span class="chat-text">${msg.text}</span>`;
+      } else {
+        let content = '';
+        if (msg.text) {
+          content += `<div class="chat-text">${this.escapeHTML(msg.text)}</div>`;
+        }
+        if (msg.gifUrl) {
+          content += `<img src="${msg.gifUrl}" class="chat-gif-img" alt="GIF" loading="lazy">`;
+        }
+
+        const reactionsContainerHTML = `<div class="msg-reactions-list" id="reactions_${isFloating ? 'float_' : ''}${msgId}"></div>`;
+
+        const quickReactionsHTML = `
+          <div class="msg-reaction-bar">
+            <span class="react-btn" data-emoji="❤️">❤️</span>
+            <span class="react-btn" data-emoji="👍">👍</span>
+            <span class="react-btn" data-emoji="🔥">🔥</span>
+            <span class="react-btn" data-emoji="😂">😂</span>
+            <span class="react-btn" data-emoji="🎉">🎉</span>
+          </div>
+        `;
+
+        bubble.innerHTML = `
+          <div class="chat-user">
+            <span>${msg.user.avatar || '⚡'}</span>
+            <span>${this.escapeHTML(msg.user.username)}</span>
+            ${msg.user.isHost ? '<span class="host-tag">HOST 👑</span>' : ''}
+          </div>
+          ${content}
+          ${reactionsContainerHTML}
+          ${quickReactionsHTML}
+        `;
+
+        bubble.querySelectorAll('.react-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const emoji = btn.dataset.emoji;
+            if (window.socketManager) {
+              window.socketManager.sendChatMessageReaction(msgId, emoji);
+            }
+          });
+        });
       }
-      if (msg.gifUrl) {
-        content += `<img src="${msg.gifUrl}" class="chat-gif-img" alt="GIF" loading="lazy">`;
-      }
+      return bubble;
+    };
 
-      bubble.innerHTML = `
-        <div class="chat-user">
-          <span>${msg.user.avatar || '⚡'}</span>
-          <span>${this.escapeHTML(msg.user.username)}</span>
-          ${msg.user.isHost ? '<span class="host-tag">HOST 👑</span>' : ''}
-        </div>
-        ${content}
-      `;
-    }
-
-    this.chatMessages.appendChild(bubble);
+    const mainBubble = createBubbleElement(false);
+    this.chatMessages.appendChild(mainBubble);
     this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
 
-    // Agregar también al chat flotante sobre el video
     if (this.floatingChatMessages) {
-      const floatBubble = bubble.cloneNode(true);
+      const floatBubble = createBubbleElement(true);
       this.floatingChatMessages.appendChild(floatBubble);
       this.floatingChatMessages.scrollTop = this.floatingChatMessages.scrollHeight;
     }
 
-    // Contador de no leídos en la burbuja si el chat flotante está cerrado
+    if (msg.reactions) {
+      this.updateChatMessageReactions(msgId, msg.reactions);
+    }
+
     if (msg.type !== 'system' && this.floatingChatOverlay && (this.floatingChatOverlay.style.display === 'none' || !this.floatingChatOverlay.style.display)) {
       this.unreadChatCount++;
       if (this.chatUnreadBadge) {
@@ -1179,6 +1213,32 @@ class AppUI {
       }
       this.highlightFloatingBubbleOnNewMessage();
     }
+  }
+
+  updateChatMessageReactions(msgId, reactions) {
+    if (!msgId) return;
+
+    ['reactions_' + msgId, 'reactions_float_' + msgId].forEach(containerId => {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      container.innerHTML = '';
+      if (!reactions) return;
+
+      Object.entries(reactions).forEach(([emoji, users]) => {
+        if (users && users.length > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'msg-reaction-badge';
+          badge.title = `Reaccionado por: ${users.join(', ')}`;
+          badge.innerHTML = `${emoji} <small>${users.length}</small>`;
+          badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window.socketManager) window.socketManager.sendChatMessageReaction(msgId, emoji);
+          });
+          container.appendChild(badge);
+        }
+      });
+    });
   }
 
   updateUsersList(users) {

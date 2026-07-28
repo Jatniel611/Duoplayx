@@ -719,6 +719,22 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('new_reaction', { emoji, user: room.users.get(socket.id) });
   });
 
+  socket.on('react_to_chat_message', (data) => {
+    const { roomId, msgId, emoji } = data;
+    const room = roomManager.getRoom(roomId);
+    if (!room || !room.users.has(socket.id)) return;
+    const user = room.users.get(socket.id);
+    const result = roomManager.toggleMessageReaction(roomId, msgId, emoji, user.username);
+    if (result) {
+      io.to(roomId).emit('chat_message_reaction_updated', {
+        msgId,
+        reactions: result.reactions,
+        user: { username: user.username, socketId: socket.id },
+        emoji
+      });
+    }
+  });
+
   socket.on('join_voice_room', (data) => {
     const { roomId } = data;
     const result = roomManager.joinVoiceRoom(roomId, socket.id);
