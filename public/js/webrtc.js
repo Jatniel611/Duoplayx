@@ -2,8 +2,8 @@
  * WebRTCVoiceManager - Sistema de Sala de Voz en Vivo DuoPlayX
  * 
  * 1. Todos los usuarios que entran a la sala escuchan automáticamente el canal de voz.
- * 2. Cero botones de "Unirse a la sala de voz".
- * 3. Botón único de "Encender / Apagar Micrófono".
+ * 2. Transceiver único en m-line #0 para evitar m-lines vacíos fantasma.
+ * 3. Botón único de "Encender / Apagar Micrófono" e indicador neón de volumen.
  * 4. Servidores STUN y TURN de relevo integrados para 4G/5G y redes hogareñas.
  * 5. Salida directa por elementos <audio> nativos desbloqueados.
  */
@@ -20,7 +20,7 @@ class WebRTCVoiceManager {
     this._analyserTimerId = null;
     this.selectedMicId = null;
 
-    // Configuración robusta de servidores ICE (STUN + TURN Relay público para 4G/5G)
+    // Configuración de servidores ICE (STUN + TURN Relay público para 4G/5G)
     this.rtcConfig = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -29,7 +29,6 @@ class WebRTCVoiceManager {
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:global.stun.twilio.com:3478' },
         { urls: 'stun:stun.services.mozilla.com:3478' },
-        // Servidores TURN de relevo gratuito para atravesar CGNAT en redes móviles 4G/5G
         {
           urls: 'turn:openrelay.metered.ca:80',
           username: 'openrelayproject',
@@ -190,20 +189,22 @@ class WebRTCVoiceManager {
       this.isMuted = false;
       this._startAnalyser();
 
-      // Transmitir la pista de audio a todas las conexiones P2P activas
+      // Vincular la pista de audio al Transceiver único m-line #0 de cada peer
       const audioTrack = this.localStream.getAudioTracks()[0];
       
       this.peerConnections.forEach(async (pc, targetId) => {
         try {
-          const senders = pc.getSenders();
-          const audioSender = senders.find(s => s.track?.kind === 'audio' || !s.track);
-          if (audioSender) {
-            await audioSender.replaceTrack(audioTrack);
+          const transceivers = pc.getTransceivers();
+          let audioTransceiver = transceivers.find(t => t.receiver.track.kind === 'audio' || t.sender.track?.kind === 'audio');
+          
+          if (audioTransceiver) {
+            audioTransceiver.direction = 'sendrecv';
+            await audioTransceiver.sender.replaceTrack(audioTrack);
           } else {
             pc.addTrack(audioTrack, this.localStream);
           }
 
-          // Crear oferta de renegociación SDP para actualizar la dirección del flujo
+          // Crear oferta de renegociación SDP
           if (pc.signalingState === 'stable') {
             const offer = await pc.createOffer({ offerToReceiveAudio: true });
             await pc.setLocalDescription(offer);
@@ -242,10 +243,10 @@ class WebRTCVoiceManager {
     }
 
     this.peerConnections.forEach(async (pc) => {
-      const senders = pc.getSenders();
-      const audioSender = senders.find(s => s.track?.kind === 'audio');
-      if (audioSender) {
-        try { await audioSender.replaceTrack(null); } catch (e) {}
+      const transceivers = pc.getTransceivers();
+      const audioTransceiver = transceivers.find(t => t.receiver.track.kind === 'audio' || t.sender.track?.kind === 'audio');
+      if (audioTransceiver && audioTransceiver.sender) {
+        try { await audioTransceiver.sender.replaceTrack(null); } catch (e) {}
       }
     });
 
@@ -267,7 +268,7 @@ class WebRTCVoiceManager {
 
     voiceSocketIds.forEach(targetId => {
       if (targetId !== currentSocketId && !this.peerConnections.has(targetId)) {
-        const isInitiator = currentSocketId < targetSocketId;
+        const isInitiator = currentSocketId < targetId;
         this._createPeerConnection(targetId, isInitiator);
       }
     });
@@ -354,24 +355,23 @@ class WebRTCVoiceManager {
     this.peerConnections.set(targetSocketId, pc);
     this.iceCandidateQueues.set(targetSocketId, []);
 
-    pc.addTransceiver('audio', { direction: 'sendrecv' });
+    // Crear exactamente UN Transceiver de audio en m-line #0
+    const audioTransceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
 
-    if (this.localStream) {
-      this.localStream.getTracks().forEach(track => {
-        const senders = pc.getSenders();
-        const audioSender = senders.find(s => s.track?.kind === 'audio' || !s.track);
-        if (audioSender) {
-          audioSender.replaceTrack(track);
-        } else {
-          pc.addTrack(track, this.localStream);
-        }
-      });
+    if (this.localStream && this.localStream.getAudioTracks().length > 0) {
+      const track = this.localStream.getAudioTracks()[0];
+      audioTransceiver.sender.replaceTrack(track);
     }
 
     pc.ontrack = (event) => {
-      console.log(`📡 [WebRTC ontrack] Pista remota recibida de ${targetSocketId}`);
-      const stream = event.streams?.[0] || (event.track ? new MediaStream([event.track]) : null);
-      if (stream) {
+      console.log(`📡 [WebRTC ontrack] Pista remota recibida de ${targetSocketId}:`, event.track?.id, 'Kind:', event.track?.kind);
+      if (event.track && event.track.kind === 'audio') {
+        event.track.enabled = true;
+        let stream = event.streams && event.streams[0];
+        if (!stream) {
+          stream = new MediaStream();
+          stream.addTrack(event.track);
+        }
         this._attachRemoteAudio(targetSocketId, stream);
       }
     };
@@ -409,7 +409,8 @@ class WebRTCVoiceManager {
       receivers.forEach(r => {
         if (r.track && r.track.kind === 'audio') {
           r.track.enabled = true;
-          const stream = new MediaStream([r.track]);
+          let stream = new MediaStream();
+          stream.addTrack(r.track);
           this._attachRemoteAudio(senderSocketId, stream);
         }
       });
@@ -429,7 +430,6 @@ class WebRTCVoiceManager {
       audioEl.id = `audio_peer_${targetSocketId}`;
       audioEl.autoplay = true;
       audioEl.playsInline = true;
-      // Posicionamiento en pantalla activa para evitar throttling de ahorro de energía
       audioEl.style.cssText = 'position:fixed;bottom:2px;right:2px;width:4px;height:4px;opacity:0.01;pointer-events:none;z-index:99999;';
       document.body.appendChild(audioEl);
     }
