@@ -1,17 +1,16 @@
 /**
  * PlayerManager - DuoPlayX
- * Motor híbrido: YouTube IFrame API + HTML5 video nativo
+ * Motor híbrido ultranfluido: YouTube IFrame API + HTML5 Video Nativo / HLS.js / GDrive
  *
- * Google Drive (MP4):
- *   → /api/gdrive-stream/:fileId  (proxy con Range headers)
- *   → El navegador hace play/pause/seek nativo con <video>
- *   → Socket.io sincroniza posición con invitados
- *   → Sin ffmpeg, sin conversión, cero procesamiento extra
+ * Sincronización Ultra-Estable (Estilo Rave / Teleparty):
+ *   → Cero bucles recursivos de pause/seek/waiting.
+ *   → Tolerancia de desvío suave de hasta 3.0s (sin flushes innecesarios de decodificador).
+ *   → Cero carteles de búfer al azar en micro-pausas de red.
  */
 
 class PlayerManager {
   constructor() {
-    this.currentType  = null;   // 'youtube' | 'mp4' | 'gdrive'
+    this.currentType  = null;   // 'youtube' | 'mp4' | 'gdrive' | 'hls'
     this.currentMedia = null;
 
     this.ytPlayer  = null;
@@ -46,45 +45,29 @@ class PlayerManager {
     if (!videoEl) return;
 
     let bufferTimer = null;
-    let wasBuffering = false;
 
     videoEl.addEventListener('loadstart', () => this.showLoadingOverlay(true, 'Cargando película...'));
 
+    // Solo mostrar aviso de búfer si la carga se detiene por más de 2.0 segundos reales
     videoEl.addEventListener('waiting', () => {
-      wasBuffering = true;
       clearTimeout(bufferTimer);
-      // Solo mostrar cartel de almacenamiento en búfer si la pausa dura MÁS DE 1.5 SEGUNDOS
       bufferTimer = setTimeout(() => {
         if (!videoEl.paused && videoEl.readyState < 3) {
           this.showLoadingOverlay(true, 'Almacenando en búfer...');
         }
-      }, 1500);
-
-      // Si el Host entra en bufer, pausar a los invitados para no desincronizarse
-      if (window.socketManager?.isHost && !this.isProgrammaticAction) {
-        window.socketManager.emitMediaAction('pause', videoEl.currentTime);
-      }
+      }, 2000);
     });
 
     videoEl.addEventListener('seeking', () => {
       clearTimeout(bufferTimer);
-      this.showLoadingOverlay(true, 'Sincronizando tiempo...');
+      if (!this.isProgrammaticAction) {
+        this.showLoadingOverlay(true, 'Sincronizando tiempo...');
+      }
     });
 
     const hideOverlay = () => {
       clearTimeout(bufferTimer);
       this.showLoadingOverlay(false);
-
-      if (wasBuffering) {
-        wasBuffering = false;
-        // Si es invitado y acaba de recuperarse del bufer, auto-sincronizar de inmediato con el Host
-        if (window.socketManager && !window.socketManager.isHost) {
-          console.log('🔄 Búfer recuperado: Auto-sincronizando invitado con la posición del Host...');
-          window.socketManager.requestHostSync();
-        } else if (window.socketManager?.isHost && !this.isProgrammaticAction) {
-          window.socketManager.emitMediaAction('play', videoEl.currentTime);
-        }
-      }
     };
 
     videoEl.addEventListener('canplay', hideOverlay);
@@ -337,12 +320,9 @@ class PlayerManager {
       this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
         console.log('✅ Manifiesto HLS cargado con éxito. Niveles de calidad:', data.levels);
         
-        // Preferir la máxima calidad disponible pero PERMITIR que HLS.js baje si hay congestión
         if (this.hlsInstance.levels && this.hlsInstance.levels.length > 0) {
           const maxLevel = this.hlsInstance.levels.length - 1;
-          // Arrancar en máxima calidad, pero NO forzar loadLevel (deja ABR activo)
           this.hlsInstance.currentLevel = maxLevel;
-          // abrEwmaDefaultEstimate alto ya fuerza que ABR empiece en máxima
           const selectedQual = data.levels[maxLevel];
           if (window.appUI && selectedQual) {
             const qualText = selectedQual.height ? `${selectedQual.height}p` : (selectedQual.bitrate ? `${Math.round(selectedQual.bitrate / 1000)}k` : 'Máxima HD');
@@ -350,25 +330,26 @@ class PlayerManager {
           }
         }
 
-        this.showLoadingOverlay(false);
         if (autoPlay) {
-          this.mp4Video.play().catch(e => console.log('[HLS Autoplay bloqueado]:', e.message));
+          this.mp4Video.play().catch(err => console.log('[HLS Autoplay bloqueado]:', err.message));
         } else {
           this.mp4Video.pause();
         }
       });
 
       this.hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-        console.warn('⚠️ HLS Error:', data);
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
+              console.warn('[HLS Network Error] Intentando recuperar red...');
               this.hlsInstance.startLoad();
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
+              console.warn('[HLS Media Error] Intentando recuperar media...');
               this.hlsInstance.recoverMediaError();
               break;
             default:
+              console.error('[HLS Fatal Error]', data);
               this.hlsInstance.destroy();
               break;
           }
@@ -376,7 +357,11 @@ class PlayerManager {
       });
     } else if (this.mp4Video.canPlayType('application/vnd.apple.mpegurl')) {
       this.mp4Video.src = proxyUrl;
-      this.mp4Video.play().catch(e => console.log('[HLS Safari Autoplay]:', e.message));
+      if (autoPlay) {
+        this.mp4Video.play().catch(err => console.log('[HLS Native Autoplay bloqueado]:', err.message));
+      } else {
+        this.mp4Video.pause();
+      }
     }
   }
 
@@ -385,7 +370,8 @@ class PlayerManager {
     this.isProgrammaticAction = true;
     try {
       if (this.currentType === 'youtube' && this.ytPlayer && this.isYTReady) {
-        if (typeof targetTime === 'number' && Math.abs(this.ytPlayer.getCurrentTime() - targetTime) > 3.0) {
+        const ytCurTime = this.ytPlayer.getCurrentTime ? (this.ytPlayer.getCurrentTime() || 0) : 0;
+        if (action === 'seek' || (typeof targetTime === 'number' && Math.abs(ytCurTime - targetTime) > 3.0)) {
           this.ytPlayer.seekTo(targetTime, true);
         }
         if (action === 'play'  || isPlaying === true)  this.ytPlayer.playVideo();
@@ -397,31 +383,25 @@ class PlayerManager {
 
         if (action === 'pause' || isPlaying === false) {
           vid.pause();
-          if (typeof targetTime === 'number' && Math.abs(vid.currentTime - targetTime) > 2.0) {
+          if (typeof targetTime === 'number' && Math.abs(vid.currentTime - targetTime) > 2.5) {
             vid.currentTime = targetTime;
           }
           return;
         }
 
         if (typeof targetTime === 'number') {
-          const diff = targetTime - vid.currentTime;
-          // Hard Seek si la diferencia supera 3.5s o es un Seek manual explícito
-          if (action === 'seek' || Math.abs(diff) > 3.5) {
-            console.log(`[Sync Hard Seek] Ajustando tiempo por diferencia de ${diff.toFixed(2)}s`);
-            vid.currentTime = targetTime;
-          } else if (Math.abs(diff) > 0.8) {
-            // Micro-seek suave: ajustar currentTime directamente sin tocar playbackRate
-            // Esto evita el stuttering de audio que causa playbackRate 1.04/0.96 en HLS
-            console.log(`[Sync Micro-Seek] Ajuste suave de ${diff.toFixed(2)}s`);
+          const diff = Math.abs(targetTime - vid.currentTime);
+          // Buscar/Ajustar tiempo SOLO si fue un Seek explícito o si la diferencia supera los 3.0s
+          if (action === 'seek' || diff > 3.0) {
+            console.log(`[Sync Seek] Ajustando tiempo por diferencia de ${diff.toFixed(2)}s`);
             vid.currentTime = targetTime;
           }
-          // Si diff < 0.8s: tolerable, no hacer nada (evita micro-parones)
         }
-        // Asegurar playbackRate siempre en 1.0 para HLS/MP4
+
         if (vid.playbackRate !== 1.0) vid.playbackRate = 1.0;
 
         if (action === 'play' || isPlaying === true) {
-          vid.play().catch(() => {});
+          if (vid.paused) vid.play().catch(() => {});
         }
       }
     } finally {
@@ -439,7 +419,6 @@ class PlayerManager {
         if (vid) vid.play().catch(e => console.log('[Unlock]', e));
       }
     } else {
-      // Si es invitado, solicitar la sincronización con el tiempo y estado del Host sin forzar .play()
       if (window.socketManager) {
         window.socketManager.requestHostSync();
       }
@@ -544,12 +523,8 @@ class PlayerManager {
     return vid ? (isNaN(vid.duration) ? 0 : (vid.duration || 0)) : 0;
   }
 
-  // ─── Tracker de progreso 500ms y Detección Automática de Búfer ──────────────
+  // ─── Tracker de progreso 500ms ─────────────────────────────────────────────
   _startProgressTracker() {
-    let lastTime = 0;
-    let stallTicks = 0;
-    let isStalled = false;
-
     setInterval(() => {
       if (!window.appUI) return;
       const curTime = this.getCurrentTime();
@@ -564,39 +539,6 @@ class PlayerManager {
         if (vid) isPlaying = !vid.paused && !vid.ended && vid.readyState >= 2;
       }
       window.appUI.togglePlayPauseSVG(isPlaying);
-
-      // Detección en tiempo real de estancamiento de búfer
-      const vid = this._activeVideo();
-      if (vid && !vid.paused && !vid.ended) {
-        if (Math.abs(curTime - lastTime) < 0.05) {
-          stallTicks++;
-          if (stallTicks >= 2 && !isStalled) {
-            isStalled = true;
-            console.warn('⚠️ Reproductor estancado en búfer.');
-            if (window.socketManager?.isHost && !this.isProgrammaticAction) {
-              window.socketManager.emitMediaAction('pause', curTime);
-            }
-          }
-        } else {
-          if (isStalled) {
-            isStalled = false;
-            console.log('✅ Reproducción reanudada tras búfer.');
-            if (window.socketManager) {
-              if (!window.socketManager.isHost) {
-                console.log('🔄 Auto-sincronizando invitado tras recuperar búfer...');
-                window.socketManager.requestHostSync();
-              } else if (!this.isProgrammaticAction) {
-                window.socketManager.emitMediaAction('play', curTime);
-              }
-            }
-          }
-          stallTicks = 0;
-        }
-      } else {
-        stallTicks = 0;
-        isStalled = false;
-      }
-      lastTime = curTime;
     }, 500);
   }
 }
