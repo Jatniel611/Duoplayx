@@ -473,12 +473,17 @@ class WebRTCVoiceManager {
 
   togglePeerAudio(socketId) {
     const audioEl = document.getElementById(`audio_peer_${socketId}`);
-    if (!audioEl) return false;
+    if (!audioEl) {
+      this.unmutePeerAudio(socketId);
+      return false; // Retorna false = NO está silenciado (Escuchando)
+    }
 
     if (audioEl.muted) {
-      return this.unmutePeerAudio(socketId);
+      this.unmutePeerAudio(socketId);
+      return false; // Retorna false = NO está silenciado (Escuchando)
     } else {
-      return this.mutePeerAudio(socketId);
+      this.mutePeerAudio(socketId);
+      return true; // Retorna true = SÍ está silenciado
     }
   }
 

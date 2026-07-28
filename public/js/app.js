@@ -1344,14 +1344,12 @@ class AppUI {
         if (btnListen) {
           btnListen.addEventListener('click', (e) => {
             e.stopPropagation();
-            const audioEl = document.getElementById(`audio_peer_${m.socketId}`);
-            if (audioEl && !audioEl.muted) {
-              window.webrtcVoiceManager.mutePeerAudio(m.socketId);
+            const isMutedNow = window.webrtcVoiceManager.togglePeerAudio(m.socketId);
+            if (isMutedNow) {
               btnListen.className = 'btn btn-xs btn-secondary';
-              btnListen.innerText = '🔇 Silenciado';
+              btnListen.innerText = '🔇 Activar Voz';
               this.showToast(`🔇 Silenciaste a ${m.username}`, 'info');
             } else {
-              window.webrtcVoiceManager.unmutePeerAudio(m.socketId);
               btnListen.className = 'btn btn-xs btn-primary';
               btnListen.innerText = '🔊 Escuchando';
               this.showToast(`🔊 Escuchando la voz de ${m.username}`, 'success');
