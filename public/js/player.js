@@ -46,10 +46,12 @@ class PlayerManager {
     if (!videoEl) return;
 
     let bufferTimer = null;
+    let wasBuffering = false;
 
     videoEl.addEventListener('loadstart', () => this.showLoadingOverlay(true, 'Cargando película...'));
 
     videoEl.addEventListener('waiting', () => {
+      wasBuffering = true;
       clearTimeout(bufferTimer);
       // Solo mostrar cartel de almacenamiento en búfer si la pausa dura MÁS DE 1.5 SEGUNDOS
       bufferTimer = setTimeout(() => {
@@ -57,6 +59,11 @@ class PlayerManager {
           this.showLoadingOverlay(true, 'Almacenando en búfer...');
         }
       }, 1500);
+
+      // Si el Host entra en bufer, pausar a los invitados para no desincronizarse
+      if (window.socketManager?.isHost && !this.isProgrammaticAction) {
+        window.socketManager.emitMediaAction('pause', videoEl.currentTime);
+      }
     });
 
     videoEl.addEventListener('seeking', () => {
@@ -67,6 +74,17 @@ class PlayerManager {
     const hideOverlay = () => {
       clearTimeout(bufferTimer);
       this.showLoadingOverlay(false);
+
+      if (wasBuffering) {
+        wasBuffering = false;
+        // Si es invitado y acaba de recuperarse del bufer, auto-sincronizar de inmediato con el Host
+        if (window.socketManager && !window.socketManager.isHost) {
+          console.log('🔄 Búfer recuperado: Auto-sincronizando invitado con la posición del Host...');
+          window.socketManager.requestHostSync();
+        } else if (window.socketManager?.isHost && !this.isProgrammaticAction) {
+          window.socketManager.emitMediaAction('play', videoEl.currentTime);
+        }
+      }
     };
 
     videoEl.addEventListener('canplay', hideOverlay);

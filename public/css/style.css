@@ -52,9 +52,7 @@ body.dark-theme {
 }
 
 .glass-card {
-  background: var(--bg-surface);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(14, 11, 24, 0.96);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-main);
@@ -174,7 +172,7 @@ body.dark-theme {
 .join-box { display: flex; gap: 10px; }
 
 .main-content { display: grid; grid-template-columns: 1fr 380px; gap: 14px; flex: 1; min-height: 0; }
-.player-section { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.player-section, .sidebar-section { contain: layout style paint; isolation: isolate; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 .media-input-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border: 1px solid rgba(255, 0, 127, 0.3); }
 .input-prefix { font-weight: 800; font-size: 0.8rem; color: var(--accent-fuchsia); white-space: nowrap; }
 
@@ -186,6 +184,7 @@ body.dark-theme {
   position: relative; width: 100%; flex: 1; min-height: 380px;
   background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;
   border: 1px solid rgba(255, 0, 127, 0.45); box-shadow: 0 0 45px rgba(0, 0, 0, 0.95), inset 0 0 25px rgba(255, 0, 127, 0.25);
+  contain: layout style paint; isolation: isolate;
   transform: translateZ(0); will-change: transform; backface-visibility: hidden;
 }
 
