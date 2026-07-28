@@ -16,6 +16,7 @@ class WebRTCVoiceManager {
     this.inVoiceRoom = false;
     this.isMuted = true;
     this.audioContext = null;
+    this.remoteAudioContext = null;
     this.analyser = null;
     this._analyserTimerId = null;
     this.selectedMicId = null;
@@ -38,10 +39,13 @@ class WebRTCVoiceManager {
     window.addEventListener('touchstart', unlock, { once: false });
   }
 
-  // ─── Desbloqueo unificado de audio ──────────────────────────────────────────
+  // ─── Desbloqueo unificado de audio local y remoto ───────────────────────────
   unlockAudio() {
     if (this.audioContext && this.audioContext.state === 'suspended') {
       this.audioContext.resume().catch(() => {});
+    }
+    if (this.remoteAudioContext && this.remoteAudioContext.state === 'suspended') {
+      this.remoteAudioContext.resume().catch(() => {});
     }
     document.querySelectorAll('audio[id^="audio_peer_"]').forEach(el => {
       el.muted = false;
@@ -180,7 +184,6 @@ class WebRTCVoiceManager {
           pc.addTrack(audioTrack, this.localStream);
         }
 
-        // Asegurar que la dirección es sendrecv
         const transceiver = pc.getTransceivers().find(t => t.receiver.track.kind === 'audio');
         if (transceiver) {
           transceiver.direction = 'sendrecv';
@@ -224,7 +227,6 @@ class WebRTCVoiceManager {
       this.localStream = null;
     }
 
-    // Reemplazar tracks por null en las conexiones peer
     this.peerConnections.forEach(async (pc) => {
       const senders = pc.getSenders();
       const audioSender = senders.find(s => s.track?.kind === 'audio');
@@ -251,7 +253,6 @@ class WebRTCVoiceManager {
 
     voiceSocketIds.forEach(targetId => {
       if (targetId !== currentSocketId && !this.peerConnections.has(targetId)) {
-        // Deterministic tie-breaking: solo un peer inicia la conexión (evita glare/colisión SDP)
         const isInitiator = currentSocketId < targetSocketId;
         this._createPeerConnection(targetId, isInitiator);
       }
@@ -379,7 +380,6 @@ class WebRTCVoiceManager {
     return pc;
   }
 
-  // ─── Verificar y conectar receptores de audio ──────────────────────────────
   _checkAndAttachReceivers(senderSocketId, pc) {
     if (!pc) return;
     try {
@@ -395,7 +395,7 @@ class WebRTCVoiceManager {
     }
   }
 
-  // ─── Vincular elemento <audio> HTML5 con eventos de unmute ─────────────────
+  // ─── Vincular elemento <audio> + Puente WebAudio directo ────────────────────
   _attachRemoteAudio(targetSocketId, stream) {
     if (!targetSocketId || !stream) return;
 
@@ -418,12 +418,31 @@ class WebRTCVoiceManager {
         audioEl.muted = false;
         audioEl.volume = 1.0;
         audioEl.play().catch(() => {});
+        this.unlockAudio();
       };
     });
 
     audioEl.srcObject = stream;
     audioEl.muted = false;
     audioEl.volume = 1.0;
+
+    // Puente WebAudio para forzar salida directa a los altavoces
+    try {
+      if (!this.remoteAudioContext) {
+        this.remoteAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (this.remoteAudioContext.state === 'suspended') {
+        this.remoteAudioContext.resume().catch(() => {});
+      }
+      if (!audioEl._webAudioSource && audioTracks.length > 0) {
+        const source = this.remoteAudioContext.createMediaStreamSource(stream);
+        source.connect(this.remoteAudioContext.destination);
+        audioEl._webAudioSource = source;
+      }
+    } catch (eWa) {
+      console.warn('WebAudio bridge fallback:', eWa);
+    }
+
     const p = audioEl.play();
     if (p && p.catch) {
       p.catch(e => console.warn(`[Audio Peer ${targetSocketId}] Autoplay diferido:`, e.message));
@@ -433,12 +452,15 @@ class WebRTCVoiceManager {
   _removePeerAudio(socketId) {
     const audioEl = document.getElementById(`audio_peer_${socketId}`);
     if (audioEl && audioEl.parentNode) {
+      if (audioEl._webAudioSource) {
+        try { audioEl._webAudioSource.disconnect(); } catch (e) {}
+        audioEl._webAudioSource = null;
+      }
       audioEl.srcObject = null;
       audioEl.parentNode.removeChild(audioEl);
     }
   }
 
-  // ─── Manejo de señalización WebRTC ──────────────────────────────────────────
   async handleIncomingSignal(senderSocketId, signal) {
     if (!this.inVoiceRoom) return;
 

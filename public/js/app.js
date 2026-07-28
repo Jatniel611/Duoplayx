@@ -430,12 +430,14 @@ class AppUI {
 
       const isAndroidOrMobile = !!window.Capacitor || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isNativeFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement);
-      const isCssFS = stage.classList.contains('fullscreen-active');
+      const isCssFS = document.body.classList.contains('fullscreen-active');
 
       if (isAndroidOrMobile) {
         if (isCssFS) {
+          document.body.classList.remove('fullscreen-active');
           stage.classList.remove('fullscreen-active');
         } else {
+          document.body.classList.add('fullscreen-active');
           stage.classList.add('fullscreen-active');
         }
         this.handleFullscreenChange();
@@ -443,6 +445,8 @@ class AppUI {
       }
 
       if (!isNativeFS && !isCssFS) {
+        document.body.classList.add('fullscreen-active');
+        stage.classList.add('fullscreen-active');
         let promise = null;
         if (stage.requestFullscreen) {
           promise = stage.requestFullscreen();
@@ -451,17 +455,15 @@ class AppUI {
         }
 
         if (promise && promise.catch) {
-          promise.catch(err => {
-            console.warn('Pantalla completa nativa rechazada, usando fallback CSS:', err);
-            stage.classList.add('fullscreen-active');
-            this.handleFullscreenChange();
-          });
+          promise.catch(() => {});
         }
+        this.handleFullscreenChange();
       } else {
         if (isNativeFS) {
           if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
           else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         }
+        document.body.classList.remove('fullscreen-active');
         stage.classList.remove('fullscreen-active');
         this.handleFullscreenChange();
       }
@@ -808,16 +810,21 @@ class AppUI {
 
   handleFullscreenChange() {
     const stage = this.playerStage || document.getElementById('playerStage');
-    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement) || (stage && stage.classList.contains('fullscreen-active'));
-    if (isFS) {
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement) || (stage && stage.classList.contains('fullscreen-active')) || document.body.classList.contains('fullscreen-active');
+
+    if (!isFS) {
+      document.body.classList.remove('fullscreen-active');
+      if (stage) stage.classList.remove('fullscreen-active');
+      clearTimeout(this.inactivityTimer);
+      this.showStageFloatingUI(true);
+    } else {
+      document.body.classList.add('fullscreen-active');
+      if (stage) stage.classList.add('fullscreen-active');
       this.showToast('📺 Modo Pantalla Completa activado', 'info');
       clearTimeout(this.inactivityTimer);
       this.inactivityTimer = setTimeout(() => {
         this.showStageFloatingUI(false);
       }, 3500);
-    } else {
-      clearTimeout(this.inactivityTimer);
-      this.showStageFloatingUI(true);
     }
   }
 

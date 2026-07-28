@@ -485,6 +485,32 @@ body.dark-theme {
 }
 
 /* PANTALLA COMPLETA NATIVA/CSS FALLBACK PARA ANDROID Y WINDOWS (SIN RECORTES) */
+body.fullscreen-active .app-header,
+body.fullscreen-active .sidebar-section,
+body.fullscreen-active .media-input-bar,
+body.fullscreen-active .guest-host-notice {
+  display: none !important;
+}
+
+body.fullscreen-active .main-content {
+  display: block !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.fullscreen-active .player-section {
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  contain: none !important;
+  isolation: auto !important;
+}
+
+body.fullscreen-active .netflix-stage,
+body.fullscreen-active #playerStage,
 .netflix-stage.fullscreen-active,
 #playerStage.fullscreen-active,
 .player-stage.fullscreen-active {
@@ -495,7 +521,7 @@ body.dark-theme {
   bottom: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  z-index: 999999 !important;
+  z-index: 9999999 !important;
   background: #000 !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -504,6 +530,7 @@ body.dark-theme {
   box-shadow: none !important;
 }
 
+body.fullscreen-active .video-wrapper,
 .netflix-stage.fullscreen-active .video-wrapper,
 #playerStage.fullscreen-active .video-wrapper,
 .player-stage.fullscreen-active .video-wrapper {
@@ -514,6 +541,8 @@ body.dark-theme {
   left: 0 !important;
 }
 
+body.fullscreen-active video,
+body.fullscreen-active iframe,
 .netflix-stage.fullscreen-active video,
 .netflix-stage.fullscreen-active iframe,
 #playerStage.fullscreen-active video,
