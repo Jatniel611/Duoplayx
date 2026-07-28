@@ -400,47 +400,47 @@ class WebRTCVoiceManager {
       audioEl.id = `audio_peer_${targetSocketId}`;
       audioEl.autoplay = true;
       audioEl.playsInline = true;
-      audioEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0.01;pointer-events:none;top:-9999px;left:-9999px;';
+      audioEl.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;top:-9999px;left:-9999px;';
       document.body.appendChild(audioEl);
     }
-
-    const audioTracks = stream.getAudioTracks();
-    audioTracks.forEach(track => {
-      track.enabled = true;
-      track.onunmute = () => {
-        console.log(`🔊 [Audio Unmuted] Reproduciendo audio de ${targetSocketId}`);
-        audioEl.muted = false;
-        audioEl.volume = 1.0;
-        audioEl.play().catch(() => {});
-        this.unlockAudio();
-      };
-    });
 
     audioEl.srcObject = stream;
     audioEl.muted = false;
     audioEl.volume = 1.0;
 
-    // Puente WebAudio para forzar salida directa a los altavoces
-    try {
-      if (!this.remoteAudioContext) {
-        this.remoteAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (this.remoteAudioContext.state === 'suspended') {
-        this.remoteAudioContext.resume().catch(() => {});
-      }
-      if (!audioEl._webAudioSource && audioTracks.length > 0) {
-        const source = this.remoteAudioContext.createMediaStreamSource(stream);
-        source.connect(this.remoteAudioContext.destination);
-        audioEl._webAudioSource = source;
-      }
-    } catch (eWa) {
-      console.warn('WebAudio bridge fallback:', eWa);
-    }
+    const playAudio = () => {
+      audioEl.muted = false;
+      audioEl.volume = 1.0;
+      audioEl.play().catch(e => console.warn(`[Audio Peer ${targetSocketId}] Play error:`, e.message));
 
-    const p = audioEl.play();
-    if (p && p.catch) {
-      p.catch(e => console.warn(`[Audio Peer ${targetSocketId}] Autoplay diferido:`, e.message));
-    }
+      try {
+        if (!this.remoteAudioContext) {
+          this.remoteAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.remoteAudioContext.state === 'suspended') {
+          this.remoteAudioContext.resume().catch(() => {});
+        }
+        if (!audioEl._webAudioSource) {
+          const source = this.remoteAudioContext.createMediaStreamSource(stream);
+          source.connect(this.remoteAudioContext.destination);
+          audioEl._webAudioSource = source;
+          console.log(`🔊 [WebAudio Bridge] Audio conectado con éxito para ${targetSocketId}`);
+        }
+      } catch (eWa) {
+        console.warn('WebAudio bridge error:', eWa);
+      }
+    };
+
+    const audioTracks = stream.getAudioTracks();
+    audioTracks.forEach(track => {
+      track.enabled = true;
+      track.onunmute = () => {
+        console.log(`🔊 [Track Unmuted] Conectando salida de voz de ${targetSocketId}`);
+        playAudio();
+      };
+    });
+
+    playAudio();
   }
 
   _removePeerAudio(socketId) {
