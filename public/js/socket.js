@@ -150,6 +150,7 @@ class SocketManager {
           this.currentRoomId = response.room.roomId;
           this.currentUser = response.room.user;
           this.isHost = true;
+          this.joinVoiceRoom();
           resolve(response.room);
         } else {
           reject(response ? response.error : 'Error al crear sala.');
@@ -179,6 +180,7 @@ class SocketManager {
           this.currentRoomId = response.room.roomId;
           this.currentUser = response.room.user;
           this.isHost = response.room.user.isHost;
+          this.joinVoiceRoom();
           resolve(response.room);
         } else {
           reject(response ? response.error : 'No se pudo unirse a la sala.');

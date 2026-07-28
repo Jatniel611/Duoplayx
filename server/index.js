@@ -602,6 +602,11 @@ io.on('connection', (socket) => {
         sysMessage: addResult.sysMessage
       });
 
+      io.to(room.id).emit('voice_room_updated', {
+        voiceMembers: roomManager.getVoiceMembersList(room),
+        users: roomManager.getUsersList(room)
+      });
+
       if (typeof callback === 'function') {
         callback({
           success: true,

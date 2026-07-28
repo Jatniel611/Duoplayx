@@ -125,13 +125,14 @@ class RoomManager {
       username: userData.username || `Usuario-${socketId.substr(0, 4)}`,
       avatar: userData.avatar || '⚡',
       isHost,
-      inVoiceRoom: false,
+      inVoiceRoom: true,
       isMuted: true,
       isSpeaking: false,
       joinedAt: Date.now()
     };
 
     room.users.set(socketId, user);
+    room.voiceUsers.add(socketId);
 
     const sysMessage = {
       id: Date.now() + Math.random().toString(),

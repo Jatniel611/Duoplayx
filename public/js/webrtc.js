@@ -4,9 +4,8 @@
  * 1. Todos los usuarios que entran a la sala escuchan automáticamente el canal de voz.
  * 2. Cero botones de "Unirse a la sala de voz".
  * 3. Botón único de "Encender / Apagar Micrófono".
- * 4. Selector de Micrófonos disponibles (MediaDevices.enumerateDevices).
- * 5. Indicador neón verde que ilumina el nombre/avatar del usuario cada vez que habla.
- * 6. Renegociación SDP transparente y puente WebAudio directo a los altavoces.
+ * 4. Servidores STUN y TURN de relevo integrados para 4G/5G y redes hogareñas.
+ * 5. Salida directa por elementos <audio> nativos desbloqueados.
  */
 
 class WebRTCVoiceManager {
@@ -14,21 +13,40 @@ class WebRTCVoiceManager {
     this.localStream = null;
     this.peerConnections = new Map(); // socketId -> RTCPeerConnection
     this.iceCandidateQueues = new Map();
-    this.inVoiceRoom = true; // Por defecto TODOS los participantes entran a la sala de voz como oyentes
+    this.inVoiceRoom = true;
     this.isMuted = true;
     this.audioContext = null;
-    this.remoteAudioContext = null;
     this.analyser = null;
     this._analyserTimerId = null;
     this.selectedMicId = null;
 
+    // Configuración robusta de servidores ICE (STUN + TURN Relay público para 4G/5G)
     this.rtcConfig = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' }
-      ]
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+        { urls: 'stun:stun.services.mozilla.com:3478' },
+        // Servidores TURN de relevo gratuito para atravesar CGNAT en redes móviles 4G/5G
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ],
+      sdpSemantics: 'unified-plan'
     };
 
     this._bindAutoplayUnlocker();
@@ -36,23 +54,26 @@ class WebRTCVoiceManager {
 
   _bindAutoplayUnlocker() {
     const unlock = () => { this.unlockAudio(); };
-    ['click', 'touchstart', 'keydown', 'pointerdown'].forEach(evt => {
+    ['click', 'touchstart', 'keydown', 'pointerdown', 'touchend'].forEach(evt => {
       window.addEventListener(evt, unlock, { once: false, passive: true });
     });
   }
 
-  // ─── Desbloqueo unificado de audio local y remoto ───────────────────────────
+  // ─── Desbloqueo unificado de audio local y elementos remotos ─────────────────
   unlockAudio() {
     if (this.audioContext && this.audioContext.state === 'suspended') {
       this.audioContext.resume().catch(() => {});
     }
-    if (this.remoteAudioContext && this.remoteAudioContext.state === 'suspended') {
-      this.remoteAudioContext.resume().catch(() => {});
-    }
+
     document.querySelectorAll('audio[id^="audio_peer_"]').forEach(el => {
-      el.muted = false;
-      el.volume = 1.0;
-      el.play().catch(() => {});
+      try {
+        el.muted = false;
+        el.volume = 1.0;
+        const p = el.play();
+        if (p && typeof p.then === 'function') {
+          p.catch(() => {});
+        }
+      } catch (e) {}
     });
   }
 
@@ -159,7 +180,7 @@ class WebRTCVoiceManager {
           video: false
         });
       } catch (errDevice) {
-        console.warn('Falló captura con dispositivo exacto, intentando por defecto:', errDevice);
+        console.warn('Falló captura con dispositivo exacto, intentando captura por defecto:', errDevice);
         this.localStream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: false
@@ -169,32 +190,27 @@ class WebRTCVoiceManager {
       this.isMuted = false;
       this._startAnalyser();
 
-      // Transmitir la pista de audio local a todas las conexiones activas
+      // Transmitir la pista de audio a todas las conexiones P2P activas
       const audioTrack = this.localStream.getAudioTracks()[0];
+      
       this.peerConnections.forEach(async (pc, targetId) => {
-        const transceivers = pc.getTransceivers();
-        const audioTransceiver = transceivers.find(t => t.receiver.track.kind === 'audio' || t.sender.track?.kind === 'audio');
-        if (audioTransceiver) {
-          audioTransceiver.direction = 'sendrecv';
-        }
+        try {
+          const senders = pc.getSenders();
+          const audioSender = senders.find(s => s.track?.kind === 'audio' || !s.track);
+          if (audioSender) {
+            await audioSender.replaceTrack(audioTrack);
+          } else {
+            pc.addTrack(audioTrack, this.localStream);
+          }
 
-        const senders = pc.getSenders();
-        const audioSender = senders.find(s => s.track?.kind === 'audio' || !s.track);
-        if (audioSender) {
-          await audioSender.replaceTrack(audioTrack);
-        } else {
-          pc.addTrack(audioTrack, this.localStream);
-        }
-
-        // Renegociación SDP para asegurar la transmisión de paquetes UDP
-        if (pc.signalingState === 'stable') {
-          try {
+          // Crear oferta de renegociación SDP para actualizar la dirección del flujo
+          if (pc.signalingState === 'stable') {
             const offer = await pc.createOffer({ offerToReceiveAudio: true });
             await pc.setLocalDescription(offer);
             window.socketManager.sendWebRTCSignal(targetId, { offer });
-          } catch (e) {
-            console.warn('Renegotiation offer error:', e);
           }
+        } catch (errReneg) {
+          console.warn(`Error renegociando con peer ${targetId}:`, errReneg);
         }
       });
 
@@ -265,7 +281,7 @@ class WebRTCVoiceManager {
     });
   }
 
-  // ─── Analizador de volumen ────────────────────────────────────────────────
+  // ─── Analizador de volumen local ──────────────────────────────────────────
   _startAnalyser() {
     this._stopAnalyser();
 
@@ -296,7 +312,7 @@ class WebRTCVoiceManager {
         let sum = 0;
         for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
         const average = sum / bufferLength;
-        const isSpeaking = average > 16;
+        const isSpeaking = average > 14;
 
         if (isSpeaking !== lastSpeaking) {
           lastSpeaking = isSpeaking;
@@ -333,6 +349,7 @@ class WebRTCVoiceManager {
       return this.peerConnections.get(targetSocketId);
     }
 
+    console.log(`🎙️ Creando conexión WebRTC P2P con peer: ${targetSocketId} (Iniciador: ${isInitiator})`);
     const pc = new RTCPeerConnection(this.rtcConfig);
     this.peerConnections.set(targetSocketId, pc);
     this.iceCandidateQueues.set(targetSocketId, []);
@@ -352,7 +369,7 @@ class WebRTCVoiceManager {
     }
 
     pc.ontrack = (event) => {
-      console.log(`📡 [ontrack] Recibida pista remota de ${targetSocketId}`);
+      console.log(`📡 [WebRTC ontrack] Pista remota recibida de ${targetSocketId}`);
       const stream = event.streams?.[0] || (event.track ? new MediaStream([event.track]) : null);
       if (stream) {
         this._attachRemoteAudio(targetSocketId, stream);
@@ -362,6 +379,13 @@ class WebRTCVoiceManager {
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         window.socketManager.sendWebRTCSignal(targetSocketId, { candidate: event.candidate });
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`📡 [WebRTC ICE State] ${targetSocketId}: ${pc.iceConnectionState}`);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        this._checkAndAttachReceivers(targetSocketId, pc);
       }
     };
 
@@ -394,18 +418,19 @@ class WebRTCVoiceManager {
     }
   }
 
-  // ─── Vincular elemento <audio> + Puente WebAudio directo ────────────────────
+  // ─── Vincular elemento <audio> nativo desbloqueado ────────────────────────
   _attachRemoteAudio(targetSocketId, stream) {
     if (!targetSocketId || !stream) return;
 
     let audioEl = document.getElementById(`audio_peer_${targetSocketId}`);
     if (!audioEl) {
-      console.log(`🔊 Creando elemento <audio> para peer ${targetSocketId}`);
+      console.log(`🔊 Creando elemento <audio> nativo para peer ${targetSocketId}`);
       audioEl = document.createElement('audio');
       audioEl.id = `audio_peer_${targetSocketId}`;
       audioEl.autoplay = true;
       audioEl.playsInline = true;
-      audioEl.style.cssText = 'position:fixed;bottom:0;right:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:1;';
+      // Posicionamiento en pantalla activa para evitar throttling de ahorro de energía
+      audioEl.style.cssText = 'position:fixed;bottom:2px;right:2px;width:4px;height:4px;opacity:0.01;pointer-events:none;z-index:99999;';
       document.body.appendChild(audioEl);
     }
 
@@ -416,23 +441,13 @@ class WebRTCVoiceManager {
     const playAudio = () => {
       audioEl.muted = false;
       audioEl.volume = 1.0;
-      audioEl.play().catch(e => console.warn(`[Audio Peer ${targetSocketId}] Play error:`, e.message));
-
-      try {
-        if (!this.remoteAudioContext) {
-          this.remoteAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (this.remoteAudioContext.state === 'suspended') {
-          this.remoteAudioContext.resume().catch(() => {});
-        }
-        if (!audioEl._webAudioSource && stream.getAudioTracks().length > 0) {
-          const source = this.remoteAudioContext.createMediaStreamSource(stream);
-          source.connect(this.remoteAudioContext.destination);
-          audioEl._webAudioSource = source;
-          console.log(`🔊 [WebAudio Bridge] Audio conectado con éxito para ${targetSocketId}`);
-        }
-      } catch (eWa) {
-        console.warn('WebAudio bridge error:', eWa);
+      const p = audioEl.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => {
+          console.log(`🔊 [Audio Out] Reproduciendo voz de ${targetSocketId} a través de altavoces`);
+        }).catch(e => {
+          console.warn(`[Audio Peer ${targetSocketId}] Play error:`, e.message);
+        });
       }
     };
 
@@ -440,7 +455,7 @@ class WebRTCVoiceManager {
     audioTracks.forEach(track => {
       track.enabled = true;
       track.onunmute = () => {
-        console.log(`🔊 [Track Unmuted] Conectando salida de voz de ${targetSocketId}`);
+        console.log(`🔊 [Track Unmuted] Pista de audio activa para peer ${targetSocketId}`);
         playAudio();
       };
     });
@@ -451,10 +466,6 @@ class WebRTCVoiceManager {
   _removePeerAudio(socketId) {
     const audioEl = document.getElementById(`audio_peer_${socketId}`);
     if (audioEl && audioEl.parentNode) {
-      if (audioEl._webAudioSource) {
-        try { audioEl._webAudioSource.disconnect(); } catch (e) {}
-        audioEl._webAudioSource = null;
-      }
       audioEl.srcObject = null;
       audioEl.parentNode.removeChild(audioEl);
     }
@@ -471,7 +482,8 @@ class WebRTCVoiceManager {
     try {
       if (signal.offer) {
         if (pc.signalingState === 'have-local-offer') {
-          await pc.setLocalDescription({ type: 'rollback' });
+          console.warn(`[SDP Glare] Conflicto de oferta local detectado con ${senderSocketId}, descartando...`);
+          return;
         }
         await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
         this._processPendingCandidates(senderSocketId, pc);
