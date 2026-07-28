@@ -405,7 +405,7 @@ class WebRTCVoiceManager {
       audioEl.id = `audio_peer_${targetSocketId}`;
       audioEl.autoplay = true;
       audioEl.playsInline = true;
-      audioEl.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;top:-9999px;left:-9999px;';
+      audioEl.style.cssText = 'position:fixed;bottom:0;right:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:1;';
       document.body.appendChild(audioEl);
     }
 
