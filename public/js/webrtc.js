@@ -6,6 +6,7 @@
  * 3. Botón único de "Encender / Apagar Micrófono".
  * 4. Selector de Micrófonos disponibles (MediaDevices.enumerateDevices).
  * 5. Indicador neón verde que ilumina el nombre/avatar del usuario cada vez que habla.
+ * 6. Renegociación SDP transparente y puente WebAudio directo a los altavoces.
  */
 
 class WebRTCVoiceManager {
@@ -35,8 +36,9 @@ class WebRTCVoiceManager {
 
   _bindAutoplayUnlocker() {
     const unlock = () => { this.unlockAudio(); };
-    window.addEventListener('click', unlock, { once: false });
-    window.addEventListener('touchstart', unlock, { once: false });
+    ['click', 'touchstart', 'keydown', 'pointerdown'].forEach(evt => {
+      window.addEventListener(evt, unlock, { once: false, passive: true });
+    });
   }
 
   // ─── Desbloqueo unificado de audio local y remoto ───────────────────────────
@@ -167,9 +169,15 @@ class WebRTCVoiceManager {
       this.isMuted = false;
       this._startAnalyser();
 
-      // Enviar la pista de audio a todas las conexiones peer activas
+      // Transmitir la pista de audio local a todas las conexiones activas
       const audioTrack = this.localStream.getAudioTracks()[0];
       this.peerConnections.forEach(async (pc, targetId) => {
+        const transceivers = pc.getTransceivers();
+        const audioTransceiver = transceivers.find(t => t.receiver.track.kind === 'audio' || t.sender.track?.kind === 'audio');
+        if (audioTransceiver) {
+          audioTransceiver.direction = 'sendrecv';
+        }
+
         const senders = pc.getSenders();
         const audioSender = senders.find(s => s.track?.kind === 'audio' || !s.track);
         if (audioSender) {
@@ -178,14 +186,10 @@ class WebRTCVoiceManager {
           pc.addTrack(audioTrack, this.localStream);
         }
 
-        const transceiver = pc.getTransceivers().find(t => t.receiver.track.kind === 'audio');
-        if (transceiver) {
-          transceiver.direction = 'sendrecv';
-        }
-
+        // Renegociación SDP para asegurar la transmisión de paquetes UDP
         if (pc.signalingState === 'stable') {
           try {
-            const offer = await pc.createOffer();
+            const offer = await pc.createOffer({ offerToReceiveAudio: true });
             await pc.setLocalDescription(offer);
             window.socketManager.sendWebRTCSignal(targetId, { offer });
           } catch (e) {
@@ -363,7 +367,7 @@ class WebRTCVoiceManager {
 
     if (isInitiator) {
       try {
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({ offerToReceiveAudio: true });
         await pc.setLocalDescription(offer);
         window.socketManager.sendWebRTCSignal(targetSocketId, { offer });
       } catch (err) {
@@ -380,6 +384,7 @@ class WebRTCVoiceManager {
       const receivers = pc.getReceivers();
       receivers.forEach(r => {
         if (r.track && r.track.kind === 'audio') {
+          r.track.enabled = true;
           const stream = new MediaStream([r.track]);
           this._attachRemoteAudio(senderSocketId, stream);
         }
@@ -420,7 +425,7 @@ class WebRTCVoiceManager {
         if (this.remoteAudioContext.state === 'suspended') {
           this.remoteAudioContext.resume().catch(() => {});
         }
-        if (!audioEl._webAudioSource) {
+        if (!audioEl._webAudioSource && stream.getAudioTracks().length > 0) {
           const source = this.remoteAudioContext.createMediaStreamSource(stream);
           source.connect(this.remoteAudioContext.destination);
           audioEl._webAudioSource = source;
@@ -470,7 +475,7 @@ class WebRTCVoiceManager {
         }
         await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
         this._processPendingCandidates(senderSocketId, pc);
-        const answer = await pc.createAnswer();
+        const answer = await pc.createAnswer({ offerToReceiveAudio: true });
         await pc.setLocalDescription(answer);
         window.socketManager.sendWebRTCSignal(senderSocketId, { answer });
         this._checkAndAttachReceivers(senderSocketId, pc);
