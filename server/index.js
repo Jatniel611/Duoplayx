@@ -742,11 +742,13 @@ io.on('connection', (socket) => {
     user.isSpeaking = isSpeaking;
     user.isMuted = isMuted;
 
-    socket.to(roomId).emit('user_speaking_updated', {
+    const payload = {
       socketId: socket.id,
       isSpeaking,
       isMuted
-    });
+    };
+    socket.to(roomId).emit('user_speaking_updated', payload);
+    socket.to(roomId).emit('speaking_state_changed', payload);
   });
 
   socket.on('disconnect', () => {

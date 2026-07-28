@@ -52,12 +52,8 @@ class PlayerManager {
     videoEl.addEventListener('playing',   () => this.showLoadingOverlay(false));
     videoEl.addEventListener('seeked',    () => this.showLoadingOverlay(false));
 
-    videoEl.addEventListener('timeupdate', () => {
-      if (window.appUI) {
-        const dur = isNaN(videoEl.duration) ? 0 : videoEl.duration;
-        window.appUI.updateSliderProgress(videoEl.currentTime || 0, dur);
-      }
-    });
+    // timeupdate ya no actualiza slider (el setInterval de _startProgressTracker lo hace cada 500ms)
+    // Esto elimina 4-6 actualizaciones DOM innecesarias por segundo
 
     videoEl.addEventListener('play', () => {
       this.showLoadingOverlay(false);
@@ -287,15 +283,16 @@ class PlayerManager {
       this.hlsInstance = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
-        maxBufferLength: 60,
-        maxMaxBufferLength: 120,
-        maxBufferSize: 90 * 1024 * 1024,
-        backBufferLength: 30,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        maxBufferSize: 30 * 1024 * 1024,
+        backBufferLength: 15,
         liveSyncDurationCount: 3,
         nudgeMaxRetries: 10,
         maxBufferHole: 0.5,
         capLevelToPlayerSize: false,
-        startLevel: -1
+        startLevel: -1,
+        abrEwmaDefaultEstimate: 5000000
       });
       this.hlsInstance.loadSource(proxyUrl);
       this.hlsInstance.attachMedia(this.mp4Video);
@@ -303,15 +300,16 @@ class PlayerManager {
       this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
         console.log('✅ Manifiesto HLS cargado con éxito. Niveles de calidad:', data.levels);
         
-        // Seleccionar automáticamente la máxima calidad disponible (1080p / 720p / HD)
+        // Preferir la máxima calidad disponible pero PERMITIR que HLS.js baje si hay congestión
         if (this.hlsInstance.levels && this.hlsInstance.levels.length > 0) {
           const maxLevel = this.hlsInstance.levels.length - 1;
+          // Arrancar en máxima calidad, pero NO forzar loadLevel (deja ABR activo)
           this.hlsInstance.currentLevel = maxLevel;
-          this.hlsInstance.loadLevel = maxLevel;
+          // abrEwmaDefaultEstimate alto ya fuerza que ABR empiece en máxima
           const selectedQual = data.levels[maxLevel];
           if (window.appUI && selectedQual) {
             const qualText = selectedQual.height ? `${selectedQual.height}p` : (selectedQual.bitrate ? `${Math.round(selectedQual.bitrate / 1000)}k` : 'Máxima HD');
-            window.appUI.showToast(`🎬 Calidad Seleccionada: ${qualText} ⭐`, 'success');
+            window.appUI.showToast(`🎬 Calidad Inicial: ${qualText} ⭐ (ABR adaptativo activo)`, 'success');
           }
         }
 
@@ -370,21 +368,20 @@ class PlayerManager {
 
         if (typeof targetTime === 'number') {
           const diff = targetTime - vid.currentTime;
-          // Solo hacer Hard Seek (que limpia el búfer HLS) si la diferencia supera los 3.5s o es un Seek manual explícito
+          // Hard Seek si la diferencia supera 3.5s o es un Seek manual explícito
           if (action === 'seek' || Math.abs(diff) > 3.5) {
-            console.log(`[Sync Hard Seek] Ajustando tiempo por diferencia mayor a 3.5s (${diff.toFixed(2)}s)`);
+            console.log(`[Sync Hard Seek] Ajustando tiempo por diferencia de ${diff.toFixed(2)}s`);
             vid.currentTime = targetTime;
-            vid.playbackRate = 1.0;
-          } else if (diff > 0.6) {
-            // Ligeramente atrasado: acelerar sutilmente (1.04x) para alcanzar al Host sin borrar el búfer
-            vid.playbackRate = 1.04;
-          } else if (diff < -0.6) {
-            // Ligeramente adelantado: desacelerar sutilmente (0.96x) para esperar al Host
-            vid.playbackRate = 0.96;
-          } else {
-            vid.playbackRate = 1.0;
+          } else if (Math.abs(diff) > 0.8) {
+            // Micro-seek suave: ajustar currentTime directamente sin tocar playbackRate
+            // Esto evita el stuttering de audio que causa playbackRate 1.04/0.96 en HLS
+            console.log(`[Sync Micro-Seek] Ajuste suave de ${diff.toFixed(2)}s`);
+            vid.currentTime = targetTime;
           }
+          // Si diff < 0.8s: tolerable, no hacer nada (evita micro-parones)
         }
+        // Asegurar playbackRate siempre en 1.0 para HLS/MP4
+        if (vid.playbackRate !== 1.0) vid.playbackRate = 1.0;
 
         if (action === 'play' || isPlaying === true) {
           vid.play().catch(() => {});

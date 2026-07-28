@@ -1,5 +1,5 @@
 /**
- * WebRTCVoiceManager - Sistema de Sala de Voz en Vivo DuoPlayX para DuoPlayX
+ * WebRTCVoiceManager - Sistema de Sala de Voz en Vivo DuoPlayX
  * 
  * 1. Todos los usuarios que entran a la sala escuchan automáticamente el canal de voz.
  * 2. Cero botones de "Unirse a la sala de voz".
@@ -17,6 +17,7 @@ class WebRTCVoiceManager {
     this.isMuted = true;
     this.audioContext = null;
     this.analyser = null;
+    this._analyserTimerId = null; // Controlar loop de volumen
     this.selectedMicId = null;
 
     this.rtcConfig = {
@@ -28,26 +29,27 @@ class WebRTCVoiceManager {
       ]
     };
 
-    this.bindAutoplayUnlocker();
+    this._bindAutoplayUnlocker();
   }
 
-  bindAutoplayUnlocker() {
-    const unlock = () => {
-      this.unlockAudio();
-    };
+  _bindAutoplayUnlocker() {
+    const unlock = () => { this.unlockAudio(); };
     window.addEventListener('click', unlock, { once: false });
     window.addEventListener('touchstart', unlock, { once: false });
   }
 
+  // ─── Desbloqueo unificado de audio (local analyser + remote audio elements) ───
   unlockAudio() {
+    // Reanudar AudioContext del analizador de micrófono local
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {});
+    }
+    // Reanudar y reproducir todos los elementos <audio> de peers remotos
     document.querySelectorAll('audio[id^="audio_peer_"]').forEach(el => {
       el.muted = false;
       el.volume = 1.0;
-      el.play().catch(e => console.warn('Audio play attempt:', e));
+      el.play().catch(() => {});
     });
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      this.audioContext.resume();
-    }
   }
 
   // Lista todos los micrófonos disponibles en el sistema/dispositivo
@@ -102,6 +104,7 @@ class WebRTCVoiceManager {
 
     this.inVoiceRoom = false;
     this.isMuted = true;
+    this._stopAnalyser();
 
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => track.stop());
@@ -110,7 +113,7 @@ class WebRTCVoiceManager {
 
     this.peerConnections.forEach((pc, id) => {
       pc.close();
-      this.removePeerAudioElement(id);
+      this._removePeerAudio(id);
     });
     this.peerConnections.clear();
     this.iceCandidateQueues.clear();
@@ -171,7 +174,7 @@ class WebRTCVoiceManager {
       }
 
       this.isMuted = false;
-      this.initAudioAnalyser();
+      this._startAnalyser();
 
       // Enviar la pista de audio a todas las conexiones peer activas
       const audioTrack = this.localStream.getAudioTracks()[0];
@@ -184,12 +187,15 @@ class WebRTCVoiceManager {
           pc.addTrack(audioTrack, this.localStream);
         }
 
-        try {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          window.socketManager.sendWebRTCSignal(targetId, { offer });
-        } catch (e) {
-          console.warn('Renegotiation offer error:', e);
+        // Solo renegociar si estamos en estado estable
+        if (pc.signalingState === 'stable') {
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            window.socketManager.sendWebRTCSignal(targetId, { offer });
+          } catch (e) {
+            console.warn('Renegotiation offer error:', e);
+          }
         }
       });
 
@@ -211,6 +217,7 @@ class WebRTCVoiceManager {
   // Apagar micrófono
   turnOffMic() {
     this.isMuted = true;
+    this._stopAnalyser();
 
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach(track => {
@@ -238,7 +245,7 @@ class WebRTCVoiceManager {
 
     voiceSocketIds.forEach(targetId => {
       if (targetId !== currentSocketId && !this.peerConnections.has(targetId)) {
-        this.createPeerConnection(targetId, true);
+        this._createPeerConnection(targetId, true);
       }
     });
 
@@ -246,13 +253,15 @@ class WebRTCVoiceManager {
       if (!voiceSocketIds.includes(targetId)) {
         pc.close();
         this.peerConnections.delete(targetId);
-        this.removePeerAudioElement(targetId);
+        this._removePeerAudio(targetId);
       }
     });
   }
 
-  // Analizador de nivel de voz para iluminar el nombre en verde palpitante
-  initAudioAnalyser() {
+  // ─── Analizador de nivel de voz ─────────────────────────────────────────────
+  _startAnalyser() {
+    this._stopAnalyser(); // Limpiar loop anterior si existe
+
     if (!this.localStream) return;
     try {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -285,13 +294,12 @@ class WebRTCVoiceManager {
         if (isSpeaking !== lastSpeaking) {
           lastSpeaking = isSpeaking;
           window.socketManager.sendSpeakingState(isSpeaking, false);
+          if (window.appUI) {
+            window.appUI.setUserSpeakingIndicator(window.socketManager.socket.id, isSpeaking);
+          }
         }
 
-        if (window.appUI && isSpeaking !== lastSpeaking) {
-          window.appUI.setUserSpeakingIndicator(window.socketManager.socket.id, isSpeaking);
-        }
-
-        setTimeout(checkVolume, 100);
+        this._analyserTimerId = setTimeout(checkVolume, 100);
       };
 
       checkVolume();
@@ -300,7 +308,20 @@ class WebRTCVoiceManager {
     }
   }
 
-  async createPeerConnection(targetSocketId, isInitiator) {
+  _stopAnalyser() {
+    if (this._analyserTimerId) {
+      clearTimeout(this._analyserTimerId);
+      this._analyserTimerId = null;
+    }
+    if (this.audioContext) {
+      this.audioContext.close().catch(() => {});
+      this.audioContext = null;
+    }
+    this.analyser = null;
+  }
+
+  // ─── Crear conexión WebRTC con un peer ──────────────────────────────────────
+  async _createPeerConnection(targetSocketId, isInitiator) {
     if (this.peerConnections.has(targetSocketId)) {
       return this.peerConnections.get(targetSocketId);
     }
@@ -325,10 +346,9 @@ class WebRTCVoiceManager {
     }
 
     pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        this.attachRemoteStream(targetSocketId, event.streams[0]);
-      } else if (event.track) {
-        this.attachRemoteStream(targetSocketId, event.track);
+      const stream = event.streams?.[0] || (event.track ? new MediaStream([event.track]) : null);
+      if (stream) {
+        this._attachRemoteAudio(targetSocketId, stream);
       }
     };
 
@@ -336,6 +356,10 @@ class WebRTCVoiceManager {
       if (event.candidate) {
         window.socketManager.sendWebRTCSignal(targetSocketId, { candidate: event.candidate });
       }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC] ICE state con ${targetSocketId}: ${pc.iceConnectionState}`);
     };
 
     if (isInitiator) {
@@ -351,115 +375,81 @@ class WebRTCVoiceManager {
     return pc;
   }
 
-  unlockAudio() {
-    if (this.remoteAudioContext && this.remoteAudioContext.state === 'suspended') {
-      this.remoteAudioContext.resume().catch(() => {});
-    }
-    document.querySelectorAll('audio[id^="audio_peer_"]').forEach(audio => {
-      audio.muted = false;
-      audio.volume = 1.0;
-      audio.play().catch(() => {});
-    });
-  }
+  // ─── Vincular audio remoto (SOLO via <audio> HTML5, sin doble WebAudio) ────
+  _attachRemoteAudio(targetSocketId, stream) {
+    if (!targetSocketId || !stream) return;
+    console.log(`🔊 Vinculando audio remoto de ${targetSocketId}`);
 
-  attachRemoteStream(targetSocketId, streamOrTrack) {
-    if (!targetSocketId || !streamOrTrack) return;
-    console.log(`🔊 Vinculando y reproduciendo audio de ${targetSocketId}`);
     let audioEl = document.getElementById(`audio_peer_${targetSocketId}`);
     if (!audioEl) {
       audioEl = document.createElement('audio');
       audioEl.id = `audio_peer_${targetSocketId}`;
       audioEl.autoplay = true;
       audioEl.playsInline = true;
-      audioEl.style.cssText = 'position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; top: -9999px; left: -9999px;';
+      audioEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0.01;pointer-events:none;top:-9999px;left:-9999px;';
       document.body.appendChild(audioEl);
     }
 
-    let stream = null;
-    if (streamOrTrack instanceof MediaStream) {
-      stream = streamOrTrack;
-    } else if (streamOrTrack && (streamOrTrack.kind === 'audio' || streamOrTrack.track)) {
-      const track = streamOrTrack.track || streamOrTrack;
-      track.enabled = true;
-      stream = new MediaStream([track]);
-    }
+    // Asegurar que todos los tracks de audio están habilitados
+    stream.getAudioTracks().forEach(t => { t.enabled = true; });
 
-    if (stream) {
-      audioEl.srcObject = stream;
-      stream.getAudioTracks().forEach(t => t.enabled = true);
-
-      // Puente WebAudio nativo para garantizar salida directa por altavoces
-      try {
-        if (!this.remoteAudioContext) {
-          this.remoteAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (this.remoteAudioContext.state === 'suspended') {
-          this.remoteAudioContext.resume().catch(() => {});
-        }
-        if (!audioEl._webAudioConnected) {
-          const source = this.remoteAudioContext.createMediaStreamSource(stream);
-          source.connect(this.remoteAudioContext.destination);
-          audioEl._webAudioConnected = true;
-        }
-      } catch (eWa) {
-        console.warn('WebAudio bridge fallback:', eWa);
-      }
-    }
-
+    audioEl.srcObject = stream;
     audioEl.muted = false;
     audioEl.volume = 1.0;
-    const p = audioEl.play();
-    if (p && p.catch) {
-      p.catch(e => console.warn(`[Audio Peer ${targetSocketId}] Autoplay diferido:`, e.message));
+    audioEl.play().catch(e => console.warn(`[Audio Peer ${targetSocketId}] Autoplay diferido:`, e.message));
+  }
+
+  _removePeerAudio(socketId) {
+    const audioEl = document.getElementById(`audio_peer_${socketId}`);
+    if (audioEl && audioEl.parentNode) {
+      audioEl.srcObject = null;
+      audioEl.parentNode.removeChild(audioEl);
     }
   }
 
-  checkAndAttachReceivers(senderSocketId, pc) {
-    if (!pc) return;
-    try {
-      const receivers = pc.getReceivers();
-      receivers.forEach(r => {
-        if (r.track && r.track.kind === 'audio') {
-          this.attachRemoteStream(senderSocketId, r.track);
-        }
-      });
-    } catch (e) {
-      console.warn('Error verificando receivers:', e);
-    }
-  }
-
+  // ─── Manejo de señalización WebRTC entrante ─────────────────────────────────
   async handleIncomingSignal(senderSocketId, signal) {
     if (!this.inVoiceRoom) return;
 
     let pc = this.peerConnections.get(senderSocketId);
     if (!pc) {
-      pc = await this.createPeerConnection(senderSocketId, false);
+      pc = await this._createPeerConnection(senderSocketId, false);
     }
 
-    if (signal.offer) {
-      await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
-      this.processPendingCandidates(senderSocketId, pc);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      window.socketManager.sendWebRTCSignal(senderSocketId, { answer });
-      this.checkAndAttachReceivers(senderSocketId, pc);
-    } else if (signal.answer) {
-      await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
-      this.processPendingCandidates(senderSocketId, pc);
-      this.checkAndAttachReceivers(senderSocketId, pc);
-    } else if (signal.candidate) {
-      const candidate = new RTCIceCandidate(signal.candidate);
-      if (pc.remoteDescription && pc.remoteDescription.type) {
-        pc.addIceCandidate(candidate).catch(e => console.warn('ICE Candidate error:', e));
-      } else {
-        const queue = this.iceCandidateQueues.get(senderSocketId) || [];
-        queue.push(candidate);
-        this.iceCandidateQueues.set(senderSocketId, queue);
+    try {
+      if (signal.offer) {
+        // Protección contra glare: si ya tenemos una oferta local, hacer rollback
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setLocalDescription({ type: 'rollback' });
+        }
+        await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
+        this._processPendingCandidates(senderSocketId, pc);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        window.socketManager.sendWebRTCSignal(senderSocketId, { answer });
+
+      } else if (signal.answer) {
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+          this._processPendingCandidates(senderSocketId, pc);
+        }
+
+      } else if (signal.candidate) {
+        const candidate = new RTCIceCandidate(signal.candidate);
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          pc.addIceCandidate(candidate).catch(e => console.warn('ICE Candidate error:', e));
+        } else {
+          const queue = this.iceCandidateQueues.get(senderSocketId) || [];
+          queue.push(candidate);
+          this.iceCandidateQueues.set(senderSocketId, queue);
+        }
       }
+    } catch (e) {
+      console.warn('[WebRTC Signal Error]', e);
     }
   }
 
-  async processPendingCandidates(socketId, pc) {
+  async _processPendingCandidates(socketId, pc) {
     const queue = this.iceCandidateQueues.get(socketId) || [];
     while (queue.length > 0) {
       const cand = queue.shift();
@@ -468,13 +458,6 @@ class WebRTCVoiceManager {
       } catch (e) {
         console.warn('Pending candidate error:', e);
       }
-    }
-  }
-
-  removePeerAudioElement(socketId) {
-    const audioEl = document.getElementById(`audio_peer_${socketId}`);
-    if (audioEl && audioEl.parentNode) {
-      audioEl.parentNode.removeChild(audioEl);
     }
   }
 }

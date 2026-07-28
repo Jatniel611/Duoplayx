@@ -86,16 +86,18 @@ class SocketManager {
 
     const handleVoiceUpdate = (data) => {
       if (data && data.voiceMembers) {
-        window.appUI.updateVoiceMembersUI(data.voiceMembers);
+        window.appUI.updateVoiceRoomState(data.voiceMembers, data.users || []);
         window.webrtcVoiceManager.syncVoicePeers(data.voiceMembers);
       }
     };
     this.socket.on('voice_room_updated', handleVoiceUpdate);
     this.socket.on('voice_members_updated', handleVoiceUpdate);
 
-    this.socket.on('speaking_state_changed', (data) => {
+    const handleSpeaking = (data) => {
       window.appUI.setUserSpeakingIndicator(data.socketId, data.isSpeaking);
-    });
+    };
+    this.socket.on('speaking_state_changed', handleSpeaking);
+    this.socket.on('user_speaking_updated', handleSpeaking);
 
     this.socket.on('webrtc_signal', (data) => {
       window.webrtcVoiceManager.handleIncomingSignal(data.senderSocketId, data.signal);

@@ -736,10 +736,9 @@ class AppUI {
       }, 3500);
     };
 
-    // Registrar eventos usando la fase de captura (capture: true) en window y document
-    const events = ['mousemove', 'mousedown', 'click', 'touchstart', 'touchmove', 'pointermove', 'keydown'];
+    // Registrar eventos usando la fase de captura solo en document (no duplicar en window)
+    const events = ['mousemove', 'mousedown', 'click', 'touchstart', 'pointermove', 'keydown'];
     events.forEach(evt => {
-      window.addEventListener(evt, resetActivity, { capture: true, passive: true });
       document.addEventListener(evt, resetActivity, { capture: true, passive: true });
     });
 
