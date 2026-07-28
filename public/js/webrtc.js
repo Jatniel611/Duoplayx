@@ -13,7 +13,7 @@ class WebRTCVoiceManager {
     this.localStream = null;
     this.peerConnections = new Map(); // socketId -> RTCPeerConnection
     this.iceCandidateQueues = new Map();
-    this.inVoiceRoom = false;
+    this.inVoiceRoom = true; // Por defecto TODOS los participantes entran a la sala de voz como oyentes
     this.isMuted = true;
     this.audioContext = null;
     this.remoteAudioContext = null;
@@ -88,20 +88,13 @@ class WebRTCVoiceManager {
   }
 
   async joinVoiceRoom() {
-    if (this.inVoiceRoom) return true;
-
     this.inVoiceRoom = true;
-    this.isMuted = true;
-    this.localStream = null;
-
-    window.socketManager.joinVoiceRoom();
+    if (window.socketManager) window.socketManager.joinVoiceRoom();
     this.unlockAudio();
     return true;
   }
 
   leaveVoiceRoom() {
-    if (!this.inVoiceRoom) return;
-
     this.inVoiceRoom = false;
     this.isMuted = true;
     this._stopAnalyser();
@@ -118,7 +111,7 @@ class WebRTCVoiceManager {
     this.peerConnections.clear();
     this.iceCandidateQueues.clear();
 
-    window.socketManager.leaveVoiceRoom();
+    if (window.socketManager) window.socketManager.leaveVoiceRoom();
   }
 
   async changeMicDevice(deviceId) {
@@ -139,7 +132,8 @@ class WebRTCVoiceManager {
   }
 
   async turnOnMic(deviceId = null) {
-    if (!this.inVoiceRoom) await this.joinVoiceRoom();
+    this.inVoiceRoom = true;
+    if (window.socketManager) window.socketManager.joinVoiceRoom();
 
     try {
       if (this.localStream) {
@@ -244,7 +238,7 @@ class WebRTCVoiceManager {
   }
 
   syncVoicePeers(voiceMembers) {
-    if (!this.inVoiceRoom) return;
+    this.inVoiceRoom = true;
 
     const currentSocketId = window.socketManager.socket?.id;
     if (!currentSocketId) return;
@@ -462,7 +456,7 @@ class WebRTCVoiceManager {
   }
 
   async handleIncomingSignal(senderSocketId, signal) {
-    if (!this.inVoiceRoom) return;
+    this.inVoiceRoom = true;
 
     let pc = this.peerConnections.get(senderSocketId);
     if (!pc) {

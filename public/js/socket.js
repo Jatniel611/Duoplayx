@@ -61,6 +61,7 @@ class SocketManager {
       window.appUI.updateUsersList(data.users);
       if (data.sysMessage) window.appUI.appendChatMessage(data.sysMessage);
       window.appUI.showToast(`${data.user.username} se unió a la sala 🎉`, 'success');
+      window.webrtcVoiceManager.joinVoiceRoom();
     });
 
     this.socket.on('user_left', (data) => {
