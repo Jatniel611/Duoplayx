@@ -1815,3 +1815,217 @@ body.in-room .mobile-nav-bar {
 }
 
 
+/* ═══════════════════════════════════════════════════════════════
+   VIDEO LOADING OVERLAY & EMPTY MEDIA OVERLAY
+   ═══════════════════════════════════════════════════════════════ */
+
+.video-loading-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 50;
+  background: rgba(3, 2, 10, 0.88);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.spinner-ring {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 0, 127, 0.2);
+  border-top-color: #ff007f;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-media-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 8;
+  background: rgba(3, 2, 10, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.connection-status-lobby {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: all 0.3s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PREMIUM BUTTONS — RESPONSIVE PARA TODOS LOS TAMAÑOS
+   PC Desktop (>1024px): botones más grandes con texto completo
+   Tablet (769px–1024px): botones medianos
+   Móvil (<768px): compactos pero llamativos
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Botones del lobby — escalan bien en cualquier pantalla */
+.lobby-actions .btn-lg {
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  padding: clamp(12px, 2vh, 18px) clamp(16px, 3vw, 32px);
+  border-radius: 16px;
+  letter-spacing: 0.4px;
+}
+
+/* Sidebar tabs — más visibles en pantallas grandes */
+@media (min-width: 1024px) {
+  .sidebar-tabs {
+    padding: 4px;
+    gap: 4px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    border-bottom: none;
+    margin-bottom: 4px;
+  }
+  .tab-btn {
+    border-radius: 10px;
+    padding: 12px 8px;
+    font-size: 0.9rem;
+    border-bottom: none;
+    transition: all 0.2s ease;
+  }
+  .tab-btn.active {
+    background: rgba(255, 0, 127, 0.2);
+    border: 1px solid rgba(255, 0, 127, 0.5);
+    border-bottom-color: rgba(255, 0, 127, 0.5);
+    box-shadow: 0 0 14px rgba(255, 0, 127, 0.3);
+  }
+  .voice-room-panel {
+    max-height: 220px;
+  }
+}
+
+/* Botones del header en pantallas grandes */
+@media (min-width: 1024px) {
+  .app-header {
+    padding: 14px 28px;
+  }
+  .btn-sm {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+  .brand-name {
+    font-size: 1.7rem;
+  }
+  .brand-sub {
+    font-size: 0.75rem;
+  }
+  .logo-icon-img {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+/* ─── BARRA DOCK INFERIOR PREMIUM — SOLO EN MÓVIL ─── */
+@media (max-width: 768px) {
+  /* La barra en móvil ya tiene sus estilos dentro del bloque @media del CSS principal */
+  /* Aseguramos que los botones del header también se vean bien en móvil */
+  .btn-sm {
+    padding: 7px 12px;
+    font-size: 0.8rem;
+  }
+  .room-badge {
+    font-size: 0.82rem;
+    padding: 5px 10px;
+  }
+}
+
+/* ─── BARRA DOCK — AJUSTE PARA PANTALLAS MUY PEQUEÑAS (<380px) ─── */
+@media (max-width: 380px) {
+  .mobile-nav-bar {
+    padding: 2px 4px 4px !important;
+    height: 52px !important;
+    gap: 2px !important;
+  }
+  .nav-item {
+    padding: 4px 2px !important;
+    font-size: 0.52rem !important;
+    border-radius: 10px !important;
+  }
+  .nav-item .nav-icon {
+    font-size: 0.95rem !important;
+  }
+  .mic-dock-btn {
+    height: 46px !important;
+    min-height: 46px !important;
+    top: -6px !important;
+  }
+  .mic-dock-btn .nav-icon {
+    font-size: 1.1rem !important;
+  }
+}
+
+/* ─── CONTROLES DEL REPRODUCTOR EN DESKTOP ─── */
+@media (min-width: 769px) {
+  .yt-btn-ctrl {
+    padding: 6px 10px;
+  }
+  .yt-play-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .svg-ctrl-icon {
+    width: 20px;
+    height: 20px;
+  }
+  .svg-main-play, .svg-main-pause {
+    width: 22px;
+    height: 22px;
+  }
+  .yt-time-display {
+    font-size: 0.85rem;
+  }
+  .yt-vol-slider {
+    width: 75px;
+  }
+}
+
+/* ─── CONTROLES DEL REPRODUCTOR EN MÓVIL ─── */
+@media (max-width: 768px) {
+  .yt-vol-slider { width: 50px !important; }
+  .yt-time-display { font-size: 0.7rem !important; }
+  .yt-btn-ctrl { padding: 4px 6px !important; }
+  .yt-play-btn { width: 34px !important; height: 34px !important; }
+  .timeline-controls-bar { padding: 6px 8px 8px !important; }
+  .host-controls-group { gap: 4px !important; }
+}
+
+/* ─── MAIN CONTENT RESPONSIVO ─── */
+@media (min-width: 1400px) {
+  .main-content {
+    grid-template-columns: 1fr 420px;
+    gap: 18px;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1399px) {
+  .main-content {
+    grid-template-columns: 1fr 360px;
+    gap: 14px;
+  }
+}
+
