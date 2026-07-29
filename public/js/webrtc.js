@@ -19,6 +19,7 @@ class WebRTCVoiceManager {
     this.analyser = null;
     this._analyserTimerId = null;
     this.selectedMicId = null;
+    this.mutedPeers = new Set(); // Conjunto de socketIds silenciados manualmente por el usuario
 
     // Configuración de servidores ICE (STUN + TURN Relay público para 4G/5G)
     this.rtcConfig = {
@@ -435,35 +436,42 @@ class WebRTCVoiceManager {
     }
 
     audioEl.srcObject = stream;
-    audioEl.muted = false;
-    audioEl.volume = 1.0;
 
-    const playAudio = () => {
+    if (this.mutedPeers.has(targetSocketId)) {
+      audioEl.muted = true;
+      audioEl.pause();
+    } else {
       audioEl.muted = false;
       audioEl.volume = 1.0;
-      const p = audioEl.play();
-      if (p && typeof p.then === 'function') {
-        p.then(() => {
-          console.log(`🔊 [Audio Out] Reproduciendo voz de ${targetSocketId} a través de altavoces`);
-        }).catch(e => {
-          console.warn(`[Audio Peer ${targetSocketId}] Play error:`, e.message);
-        });
-      }
-    };
 
-    const audioTracks = stream.getAudioTracks();
-    audioTracks.forEach(track => {
-      track.enabled = true;
-      track.onunmute = () => {
-        console.log(`🔊 [Track Unmuted] Pista de audio activa para peer ${targetSocketId}`);
-        playAudio();
+      const playAudio = () => {
+        audioEl.muted = false;
+        audioEl.volume = 1.0;
+        const p = audioEl.play();
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            console.log(`🔊 [Audio Out] Reproduciendo voz de ${targetSocketId} a través de altavoces`);
+          }).catch(e => {
+            console.warn(`[Audio Peer ${targetSocketId}] Play error:`, e.message);
+          });
+        }
       };
-    });
 
-    playAudio();
+      const audioTracks = stream.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = true;
+        track.onunmute = () => {
+          console.log(`🔊 [Track Unmuted] Pista de audio activa para peer ${targetSocketId}`);
+          playAudio();
+        };
+      });
+
+      playAudio();
+    }
   }
 
   _removePeerAudio(socketId) {
+    this.mutedPeers.delete(socketId);
     const audioEl = document.getElementById(`audio_peer_${socketId}`);
     if (audioEl && audioEl.parentNode) {
       audioEl.srcObject = null;
@@ -472,40 +480,35 @@ class WebRTCVoiceManager {
   }
 
   togglePeerAudio(socketId) {
-    const audioEl = document.getElementById(`audio_peer_${socketId}`);
-    if (!audioEl) {
-      this.unmutePeerAudio(socketId);
-      return false; // Retorna false = NO está silenciado (Escuchando)
-    }
-
-    if (audioEl.muted) {
-      this.unmutePeerAudio(socketId);
-      return false; // Retorna false = NO está silenciado (Escuchando)
+    if (this.mutedPeers.has(socketId)) {
+      return this.unmutePeerAudio(socketId);
     } else {
-      this.mutePeerAudio(socketId);
-      return true; // Retorna true = SÍ está silenciado
+      return this.mutePeerAudio(socketId);
     }
   }
 
   unmutePeerAudio(socketId) {
+    this.mutedPeers.delete(socketId);
     const audioEl = document.getElementById(`audio_peer_${socketId}`);
-    if (!audioEl) return true;
-
-    audioEl.muted = false;
-    if (!audioEl.volume || audioEl.volume === 0) audioEl.volume = 1.0;
-    const p = audioEl.play();
-    if (p && typeof p.then === 'function') {
-      p.catch(e => console.warn(`Error desbloqueando audio de ${socketId}:`, e));
+    if (audioEl) {
+      audioEl.muted = false;
+      if (!audioEl.volume || audioEl.volume === 0) audioEl.volume = 1.0;
+      const p = audioEl.play();
+      if (p && typeof p.then === 'function') {
+        p.catch(e => console.warn(`Error reproduciendo audio de ${socketId}:`, e));
+      }
     }
-    return true;
+    return false; // Retorna false = NO está silenciado (Escuchando)
   }
 
   mutePeerAudio(socketId) {
+    this.mutedPeers.add(socketId);
     const audioEl = document.getElementById(`audio_peer_${socketId}`);
-    if (!audioEl) return false;
-
-    audioEl.muted = true;
-    return false;
+    if (audioEl) {
+      audioEl.muted = true;
+      audioEl.pause();
+    }
+    return true; // Retorna true = SÍ está silenciado
   }
 
   setPeerVolume(socketId, volumePercent) {
@@ -514,16 +517,14 @@ class WebRTCVoiceManager {
 
     const vol = Math.max(0, Math.min(1, volumePercent / 100));
     audioEl.volume = vol;
-    if (vol > 0 && audioEl.muted) {
+    if (vol > 0 && !this.mutedPeers.has(socketId)) {
       audioEl.muted = false;
       audioEl.play().catch(() => {});
     }
   }
 
   isPeerMuted(socketId) {
-    const audioEl = document.getElementById(`audio_peer_${socketId}`);
-    if (!audioEl) return false;
-    return audioEl.muted;
+    return this.mutedPeers.has(socketId);
   }
 
   async handleIncomingSignal(senderSocketId, signal) {
