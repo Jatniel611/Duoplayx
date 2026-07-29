@@ -241,12 +241,16 @@ class PlayerManager {
       this.currentType = 'gdrive';
       this._showContainer('gdrive');
 
-      const proxyUrl = media.url || `/api/gdrive-stream/${media.fileId}`;
-      console.log(`[GDrive] Cargando película de Drive vía proxy: ${proxyUrl}`);
+      // Intentar transmisión directa desde Google Drive (0% ancho de banda del servidor)
+      const directUrl = (media.url && !media.url.startsWith('/api/')) 
+        ? media.url 
+        : `https://drive.usercontent.google.com/download?id=${media.fileId}&export=download&confirm=t`;
+        
+      console.log(`[GDrive] Cargando película de Drive directo: ${directUrl}`);
 
       if (window.appUI) window.appUI.showToast('🔄 Cargando película de Google Drive...', 'info');
 
-      this.gdriveVideo.src = proxyUrl;
+      this.gdriveVideo.src = directUrl;
       this.gdriveVideo.load();
 
       this.gdriveVideo.addEventListener('canplay', () => {
@@ -260,11 +264,11 @@ class PlayerManager {
       }
 
     } else {
-      // MP4 / Pixeldrain / Enlace directo
+      // MP4 / Pixeldrain / Enlace directo (0% ancho de banda del servidor)
       this.currentType = 'mp4';
       this._showContainer('mp4');
       this.mp4Video.removeAttribute('crossorigin');
-      this.mp4Video.setAttribute('referrerpolicy', 'no-referrer');
+      this.mp4Video.removeAttribute('referrerpolicy');
       this.mp4Video.src = media.url;
       this.mp4Video.load();
       if (autoPlay) {
@@ -278,8 +282,9 @@ class PlayerManager {
   }
 
   _playHLSStream(hlsUrl, referer, autoPlay = true) {
-    const proxyUrl = `/api/hls-proxy?url=${encodeURIComponent(hlsUrl)}${referer ? '&referer=' + encodeURIComponent(referer) : ''}`;
-    console.log(`[HLS Player] Cargando stream via proxy: ${proxyUrl}`);
+    // Usar la fuente HLS directa del cliente por defecto (0% ancho de banda del servidor)
+    const targetSource = hlsUrl;
+    console.log(`[HLS Player] Cargando stream directo: ${targetSource}`);
 
     if (window.appUI) window.appUI.showToast('🎬 Cargando película HLS / Stream en vivo...', 'info');
 
@@ -301,7 +306,7 @@ class PlayerManager {
         capLevelToPlayerSize: false,
         startLevel: -1
       });
-      this.hlsInstance.loadSource(proxyUrl);
+      this.hlsInstance.loadSource(targetSource);
       this.hlsInstance.attachMedia(this.mp4Video);
 
       this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
