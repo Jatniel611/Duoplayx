@@ -592,40 +592,40 @@ body.fullscreen-active .player-section {
 /* BARRA FLOTANTE DE REACCIONES SUPERPUESTA SOBRE EL VIDEO EN PANTALLA COMPLETA & STAGE */
 .stage-floating-reactions-bar {
   position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(10, 8, 20, 0.78);
+  top: 10px;
+  left: 10px;
+  transform: none;
+  background: rgba(10, 8, 20, 0.85);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 0, 127, 0.4);
+  border: 1px solid rgba(255, 0, 127, 0.45);
   border-radius: var(--radius-full);
-  padding: 4px 12px;
+  padding: 3px 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   z-index: 45;
   transition: opacity 0.35s ease, transform 0.35s ease;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7), 0 0 15px rgba(255, 0, 127, 0.2);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.85), 0 0 15px rgba(255, 0, 127, 0.3);
 }
 
 .stage-floating-reactions-bar.idle-hidden {
   opacity: 0 !important;
   pointer-events: none !important;
-  transform: translate(-50%, -12px) !important;
+  transform: translateY(-10px) !important;
 }
 
 .stage-reaction-btn {
   background: transparent;
   border: none;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   cursor: pointer;
-  padding: 3px 6px;
+  padding: 2px 4px;
   border-radius: 50%;
   transition: transform 0.18s ease, background 0.18s ease;
 }
 
 .stage-reaction-btn:hover, .stage-reaction-btn:active {
-  transform: scale(1.4);
+  transform: scale(1.35);
   background: rgba(255, 0, 127, 0.25);
 }
 
