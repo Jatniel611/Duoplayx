@@ -2330,7 +2330,7 @@ body.in-room .mobile-nav-bar {
   white-space: nowrap;
   width: fit-content;
   will-change: transform;
-  animation: raveScrollingNews 8.5s linear forwards;
+  animation: raveScrollingNews 16s linear forwards;
   pointer-events: auto;
 }
 

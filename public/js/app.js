@@ -1364,7 +1364,7 @@ class AppUI {
         if (tickerItem && tickerItem.parentNode) {
           tickerItem.parentNode.removeChild(tickerItem);
         }
-      }, 8600);
+      }, 16100);
     }
   }
 
