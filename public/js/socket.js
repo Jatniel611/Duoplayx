@@ -25,7 +25,7 @@ class SocketManager {
       origin === 'http://localhost' ||
       (origin.includes('localhost') && /Android|Mobile|Capacitor/i.test(navigator.userAgent || ''))
     );
-    return isNativeApp ? 'https://duoplayx.onrender.com' : origin;
+    return isNativeApp ? 'https://duoplayx-39qn.onrender.com' : origin;
   }
 
   _initSocket() {

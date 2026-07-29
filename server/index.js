@@ -163,107 +163,176 @@ async function resolveDriveUrl(fileId) {
   return { url, cookies };
 }
 
-// Endpoint proxy: reenvía bytes del MP4 de Drive al navegador con soporte completo
-// de Range requests (necesario para que el elemento <video> pueda hacer seeking)
+// Helper para verificar si la petición es local (PC/Desktop del usuario) o nube (Render)
+function isLocalhostRequest(req) {
+  const host = req.headers.host || '';
+  return host.includes('localhost') || host.includes('127.0.0.1') || host.includes('192.168.') || host.includes('10.');
+}
+
+// Endpoint proxy inteligente para Google Drive
 app.get('/api/gdrive-stream/:fileId', async (req, res) => {
   const fileId = req.params.fileId;
   if (!fileId) return res.status(400).json({ error: 'File ID required' });
 
+  // En el servidor remoto en la nube (Render), redirigir directamente para 0% consumo de ancho de banda
+  if (!isLocalhostRequest(req)) {
+    const directUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+    return res.redirect(302, directUrl);
+  }
+
+  // En la App de Windows / Ejecutable local, actuar como Proxy local completo
   try {
     const driveResult = await resolveDriveUrl(fileId);
-
     if (driveResult.error === 'QuotaExceeded') {
-      return res.status(429).json({
-        error: 'Google Drive quota exceeded',
-        isQuotaError: true,
-        message: 'Google Drive ha bloqueado temporalmente este enlace por superar la cuota diaria de descarga.'
-      });
+      return res.status(429).json({ error: 'Google Drive quota exceeded', isQuotaError: true });
     }
 
     const { url: driveUrl, cookies } = driveResult;
-
-    // Reenviar Range header del cliente a Drive (habilita seeking nativo)
     const reqHeaders = {};
     if (cookies) reqHeaders['Cookie'] = cookies;
     if (req.headers.range) reqHeaders['Range'] = req.headers.range;
 
-    console.log(`[GDrive Stream] ${req.headers.range || 'no range'} → ${driveUrl.substring(0, 70)}...`);
-
     const driveRes = await makeHttpsRequest(driveUrl, reqHeaders);
     const status = driveRes.statusCode;
-    const ct = driveRes.headers['content-type'] || 'video/mp4';
 
-    // Si Drive devuelve HTML inesperadamente, verificar cuota
-    if (ct.includes('text/html')) {
-      driveUrlCache.delete(fileId);
-      const body = await readBody(driveRes);
-      if (body.includes('Quota exceeded') || body.includes('cuota de descarga')) {
-        console.warn(`[GDrive Stream] ⚠️ Quota Exceeded detectado en stream para ${fileId}`);
-        return res.status(429).json({
-          error: 'Google Drive quota exceeded',
-          isQuotaError: true,
-          message: 'Se ha superado la cuota de descarga de este archivo en Google Drive.'
-        });
-      }
-      console.error('[GDrive Stream] Got HTML, cache invalidated. Preview:', body.substring(0, 150));
-      return res.status(502).json({ error: 'Drive devolvió HTML. Reintenta.' });
-    }
-
-    // Construir headers de respuesta
     const resHeaders = {
-      'Content-Type': 'video/mp4',  // Siempre MP4 para el navegador
+      'Content-Type': 'video/mp4',
       'Accept-Ranges': 'bytes',
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'no-cache'
     };
 
-    if (driveRes.headers['content-length'])  resHeaders['Content-Length']  = driveRes.headers['content-length'];
-    if (driveRes.headers['content-range'])   resHeaders['Content-Range']   = driveRes.headers['content-range'];
+    if (driveRes.headers['content-length']) resHeaders['Content-Length'] = driveRes.headers['content-length'];
+    if (driveRes.headers['content-range']) resHeaders['Content-Range'] = driveRes.headers['content-range'];
 
-    // 206 Partial si Drive respondió 206, 200 en otro caso
     res.writeHead(status === 206 ? 206 : 200, resHeaders);
     driveRes.pipe(res);
-
     req.on('close', () => driveRes.destroy());
-
   } catch (err) {
-    console.error('[GDrive Stream Error]:', err.message);
-    if (!res.headersSent) res.status(500).json({ error: err.message });
+    console.error('[Local GDrive Stream Error]:', err.message);
+    res.redirect(302, `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`);
   }
 });
 
-// Endpoint proxy: reenvía bytes de Pixeldrain con soporte de Range headers (seeking y streaming fluido para archivos de cualquier tamaño)
+// Endpoint proxy inteligente para Pixeldrain
 app.get('/api/pixeldrain-stream/:fileId', async (req, res) => {
   const fileId = req.params.fileId;
   if (!fileId) return res.status(400).json({ error: 'File ID required' });
 
   const targetUrl = `https://pixeldrain.com/api/file/${fileId}`;
-  const reqHeaders = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' };
-  if (req.headers.range) reqHeaders['Range'] = req.headers.range;
 
-  console.log(`[Pixeldrain Stream] fileId=${fileId} range=${req.headers.range || 'no range'}`);
+  // En el servidor remoto en la nube (Render), redirigir directamente para 0% consumo de ancho de banda
+  if (!isLocalhostRequest(req)) {
+    return res.redirect(302, targetUrl);
+  }
 
+  // En la App de Windows / Ejecutable local, actuar como Proxy local completo
   try {
+    const reqHeaders = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' };
+    if (req.headers.range) reqHeaders['Range'] = req.headers.range;
+
     const pxRes = await makeHttpsRequest(targetUrl, reqHeaders);
     const status = pxRes.statusCode;
 
     const resHeaders = {
-      'Content-Type': 'video/mp4', // Forzar siempre video/mp4 para reproductor HTML5
+      'Content-Type': 'video/mp4',
       'Accept-Ranges': 'bytes',
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'no-cache'
     };
 
     if (pxRes.headers['content-length']) resHeaders['Content-Length'] = pxRes.headers['content-length'];
-    if (pxRes.headers['content-range'])  resHeaders['Content-Range']  = pxRes.headers['content-range'];
+    if (pxRes.headers['content-range']) resHeaders['Content-Range'] = pxRes.headers['content-range'];
 
     res.writeHead(status === 206 ? 206 : (status === 200 ? 200 : status), resHeaders);
     pxRes.pipe(res);
-
     req.on('close', () => pxRes.destroy());
   } catch (err) {
-    console.error('[Pixeldrain Stream Error]:', err.message);
-    if (!res.headersSent) res.status(500).json({ error: err.message });
+    console.error('[Local Pixeldrain Stream Error]:', err.message);
+    res.redirect(302, targetUrl);
+  }
+});
+
+// Proxy HLS inteligente (Localhost = Proxy completo local / Render = 302 Directo en 0%)
+app.get('/api/hls-proxy', async (req, res) => {
+  const targetUrl = req.query.url;
+  const referer = req.query.referer || targetUrl;
+
+  if (!targetUrl) return res.status(400).send('URL required');
+
+  const isLocal = isLocalhostRequest(req);
+
+  // Si no es local y es un segmento de video binario (.ts / .m4s / .mp4), redirigir directamente para 0% en Render
+  if (!isLocal && (targetUrl.includes('.ts') || targetUrl.includes('.m4s') || targetUrl.includes('.mp4'))) {
+    return res.redirect(302, targetUrl);
+  }
+
+  try {
+    const reqHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Referer': referer
+    };
+    if (req.headers.range) reqHeaders['Range'] = req.headers.range;
+
+    const proxyRes = await makeHttpsRequest(targetUrl, reqHeaders);
+    const status = proxyRes.statusCode;
+    let contentType = proxyRes.headers['content-type'] || '';
+
+    if (targetUrl.includes('.m3u8') || contentType.includes('mpegurl') || contentType.includes('application/x-mpegurl')) {
+      let m3u8Body = await readBody(proxyRes);
+      const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+
+      const rewritten = m3u8Body.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return line;
+        if (trimmed.startsWith('#')) {
+          if (trimmed.includes('URI="')) {
+            return trimmed.replace(/URI="([^"]+)"/g, (match, uri) => {
+              let abs = uri.startsWith('http') ? uri : new URL(uri, baseUrl).href;
+              return `URI="/api/hls-proxy?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(referer)}"`;
+            });
+          }
+          return line;
+        }
+
+        let absoluteSegmentUrl = trimmed;
+        if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+          absoluteSegmentUrl = new URL(trimmed, baseUrl).href;
+        }
+
+        // Si es local, canalizar los segmentos por el proxy de localhost. Si es Render, usar URL directa.
+        return isLocal 
+          ? `/api/hls-proxy?url=${encodeURIComponent(absoluteSegmentUrl)}&referer=${encodeURIComponent(referer)}`
+          : absoluteSegmentUrl;
+      }).join('\n');
+
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      return res.status(status === 206 ? 206 : 200).send(rewritten);
+    }
+
+    if (!contentType || contentType.includes('mpegurl')) {
+      contentType = targetUrl.includes('.m4s') ? 'video/iso.segment' : 'video/mp2t';
+    }
+
+    req.on('close', () => {
+      try {
+        if (proxyRes && typeof proxyRes.destroy === 'function' && !proxyRes.destroyed) {
+          proxyRes.destroy();
+        }
+      } catch (eClose) {}
+    });
+
+    res.writeHead(status === 206 ? 206 : 200, {
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*'
+    });
+    proxyRes.pipe(res);
+
+  } catch (err) {
+    console.error('[HLS Proxy Error]:', err.message);
+    res.redirect(302, targetUrl);
   }
 });
 
@@ -508,82 +577,6 @@ app.post('/api/resolve-media', async (req, res) => {
   }
 });
 
-// Proxy HLS para evitar bloqueos por CORS o Referer
-app.get('/api/hls-proxy', async (req, res) => {
-  const targetUrl = req.query.url;
-  const referer = req.query.referer || targetUrl;
-
-  if (!targetUrl) return res.status(400).send('URL required');
-
-  try {
-    const reqHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Referer': referer
-    };
-
-    if (req.headers.range) reqHeaders['Range'] = req.headers.range;
-
-    const proxyRes = await makeHttpsRequest(targetUrl, reqHeaders);
-    const status = proxyRes.statusCode;
-    let contentType = proxyRes.headers['content-type'] || '';
-
-    // Reescribir listas .m3u8 para canalizar todos los segmentos por el proxy
-    if (targetUrl.includes('.m3u8') || contentType.includes('mpegurl') || contentType.includes('application/x-mpegurl')) {
-      let m3u8Body = await readBody(proxyRes);
-      const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-
-      const rewritten = m3u8Body.split('\n').map(line => {
-        const trimmed = line.trim();
-        if (!trimmed) return line;
-
-        // Reescribir URIs en etiquetas como #EXT-X-KEY o #EXT-X-MAP
-        if (trimmed.startsWith('#')) {
-          if (trimmed.includes('URI="')) {
-            return trimmed.replace(/URI="([^"]+)"/g, (match, uri) => {
-              let abs = uri.startsWith('http') ? uri : new URL(uri, baseUrl).href;
-              return `URI="/api/hls-proxy?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(referer)}"`;
-            });
-          }
-          return line;
-        }
-
-        let absoluteSegmentUrl = trimmed;
-        if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-          absoluteSegmentUrl = new URL(trimmed, baseUrl).href;
-        }
-
-        return `/api/hls-proxy?url=${encodeURIComponent(absoluteSegmentUrl)}&referer=${encodeURIComponent(referer)}`;
-      }).join('\n');
-
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-      return res.status(status === 206 ? 206 : 200).send(rewritten);
-    }
-
-    if (!contentType || contentType.includes('mpegurl')) {
-      contentType = targetUrl.includes('.m4s') ? 'video/iso.segment' : 'video/mp2t';
-    }
-
-    req.on('close', () => {
-      try {
-        if (proxyRes && typeof proxyRes.destroy === 'function' && !proxyRes.destroyed) {
-          proxyRes.destroy();
-        }
-      } catch (eClose) {}
-    });
-
-    res.writeHead(status === 206 ? 206 : 200, {
-      'Content-Type': contentType,
-      'Accept-Ranges': 'bytes',
-      'Access-Control-Allow-Origin': '*'
-    });
-    proxyRes.pipe(res);
-
-  } catch (err) {
-    console.error('[HLS Proxy Error]:', err.message);
-    if (!res.headersSent) res.status(500).send(err.message);
-  }
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SOCKET.IO — Sala de Watch Party
