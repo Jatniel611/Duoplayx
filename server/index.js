@@ -258,27 +258,38 @@ async function safeFetchHtml(targetUrl, referer) {
   }
 }
 
+const vm = require('vm');
+
 function unpackDeanEdwardsJs(code) {
   if (!code || typeof code !== 'string') return code;
   try {
-    const matches = code.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\.split\('\|'\)\)\)/g);
+    const evalRegex = /eval\(function\(p,a,c,k,e,d\)[\s\S]+?\.split\('\|'\)\s*\)\s*\)/g;
+    const matches = code.match(evalRegex);
     if (!matches) return code;
 
     let unpackedAll = code;
-    for (const matchStr of matches) {
-      const parts = matchStr.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([\s\S]*?)'\.split\('\|'\)/);
-      if (parts) {
-        let [_, p, a, c, k] = parts;
-        a = parseInt(a, 10);
-        c = parseInt(c, 10);
-        k = k.split('|');
-        const eFunc = (c) => (c < a ? '' : eFunc(Math.floor(c / a))) + ((c = c % a) > 35 ? String.fromCharCode(c + 29) : c.toString(36));
-        while (c--) {
-          if (k[c]) {
-            p = p.replace(new RegExp('\\b' + eFunc(c) + '\\b', 'g'), k[c]);
-          }
+    for (const packedSnippet of matches) {
+      const inner = packedSnippet.replace(/^eval\s*\(/, '').replace(/\)\s*$/, '');
+      try {
+        const unpackedJS = vm.runInNewContext('(' + inner + ')');
+        if (unpackedJS && typeof unpackedJS === 'string') {
+          unpackedAll += '\n' + unpackedJS;
         }
-        unpackedAll += '\n' + p;
+      } catch (eVm) {
+        const parts = packedSnippet.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([\s\S]*?)'\.split\('\|'\)/);
+        if (parts) {
+          let [_, p, a, c, k] = parts;
+          a = parseInt(a, 10);
+          c = parseInt(c, 10);
+          k = k.split('|');
+          const eFunc = (c) => (c < a ? '' : eFunc(Math.floor(c / a))) + ((c = c % a) > 35 ? String.fromCharCode(c + 29) : c.toString(36));
+          while (c--) {
+            if (k[c]) {
+              p = p.replace(new RegExp('\\b' + eFunc(c) + '\\b', 'g'), k[c]);
+            }
+          }
+          unpackedAll += '\n' + p;
+        }
       }
     }
     return unpackedAll;

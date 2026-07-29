@@ -989,7 +989,7 @@ body.fullscreen-active .player-section {
     min-height: 0;
     overflow: hidden;
     gap: 4px;
-    margin-bottom: 56px;
+    margin-bottom: 42px;
   }
 
   .player-section, #sectionPlayer {
@@ -1137,14 +1137,14 @@ body.fullscreen-active .player-section {
   }
   .toast { padding: 8px 12px; font-size: 0.8rem; }
 
-  /* Barra de Navegación Fija Inferior (Visible ÚNICAMENTE dentro de una sala) */
+  /* Barra de Navegación Fija Inferior (Súper Compacta & Estilizada) */
   .mobile-nav-bar {
     display: none; align-items: center; justify-content: space-around;
-    background: rgba(8, 6, 16, 0.95); backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255, 0, 127, 0.3); padding: 2px 10px;
+    background: rgba(8, 6, 16, 0.96); backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 0, 127, 0.3); padding: 1px 8px;
     position: fixed !important; bottom: 0 !important; left: 0 !important;
     width: 100vw !important; z-index: 1000 !important;
-    height: 56px !important; box-sizing: border-box;
+    height: 40px !important; box-sizing: border-box;
   }
 
   body.in-room .mobile-nav-bar {
@@ -1152,31 +1152,34 @@ body.fullscreen-active .player-section {
   }
 
   .mobile-nav-btn {
-    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    display: flex; flex-direction: column; align-items: center; gap: 0px;
     background: none; border: none; color: var(--text-muted);
-    font-size: 0.68rem; font-weight: 600; cursor: pointer; flex: 1;
+    font-size: 0.6rem; font-weight: 600; cursor: pointer; flex: 1;
   }
 
   .mobile-nav-btn.active { color: var(--accent-fuchsia); }
-  .mobile-nav-btn .nav-icon { font-size: 1.1rem; }
+  .mobile-nav-btn .nav-icon { font-size: 0.92rem; }
 
   .mobile-nav-mic-btn {
     display: flex; flex-direction: column; align-items: center;
     background: none; border: none; cursor: pointer;
-    position: relative; top: -14px; z-index: 1001; flex: 1;
+    position: relative; top: -6px; z-index: 1001; flex: 1;
   }
 
   .mic-glow-circle {
-    width: 52px; height: 52px; border-radius: 50%;
+    width: 36px; height: 36px; border-radius: 50%;
     background: var(--accent-gradient);
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 25px rgba(255, 0, 127, 0.85), 0 0 10px rgba(168, 85, 247, 0.6);
-    border: 2px solid #fff; transition: all 0.25s ease;
+    box-shadow: 0 0 15px rgba(255, 0, 127, 0.85);
+    border: 1.5px solid #fff; transition: all 0.25s ease;
   }
+
+  .mic-glow-circle .mic-icon { font-size: 0.88rem; }
+  .nav-label-mic { font-size: 0.58rem; color: var(--text-muted); font-weight: 700; margin-top: 1px; }
 
   .mic-glow-circle.mic-active {
     background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-    box-shadow: 0 0 25px rgba(16, 185, 129, 0.95), 0 0 12px rgba(16, 185, 129, 0.6) !important;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.95) !important;
   }
 
 /* ─── NUEVAS CARDS Y PANELES ESTILO RAVE BLUEPRINT ─── */
