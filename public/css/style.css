@@ -814,18 +814,18 @@ body.fullscreen-active .stage-floating-reactions-bar {
 
 /* OVERLAY TRANSPARENTE DEL CHAT FLOTANTE SOBRE EL VIDEO */
 .floating-chat-overlay {
+  display: none;
   position: absolute !important;
   top: 10px !important;
   right: 10px !important;
   width: 320px !important;
   max-width: calc(100% - 20px) !important;
   max-height: calc(100% - 20px) !important;
-  height: 240px !important;
+  height: 250px !important;
   background: rgba(10, 8, 18, 0.96) !important;
   border: 1.5px solid rgba(255, 0, 127, 0.6) !important;
   border-radius: var(--radius-md) !important;
   z-index: 250 !important;
-  display: flex !important;
   flex-direction: column !important;
   padding: 8px 10px !important;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.95), 0 0 15px rgba(255, 0, 127, 0.3) !important;
