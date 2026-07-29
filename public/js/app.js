@@ -1018,8 +1018,12 @@ class AppUI {
     });
   }
 
+  isMobileOrCompactView() {
+    return window.innerWidth <= 1024 || window.innerHeight <= 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+
   setActiveMobileTab(mode) {
-    if (window.innerWidth > 768) return;
+    if (!this.isMobileOrCompactView()) return;
 
     this.btnNavPlayer.classList.remove('active');
     this.btnNavChat.classList.remove('active');
@@ -1068,12 +1072,15 @@ class AppUI {
     if (this.modalLobby) this.modalLobby.style.display = 'none';
 
     if (this.mainRoom) {
-      if (window.innerWidth <= 768) {
+      if (this.isMobileOrCompactView()) {
         this.mainRoom.style.display = 'flex';
         if (this.mobileNavBar) this.mobileNavBar.style.display = 'flex';
         this.setActiveMobileTab('player');
       } else {
         this.mainRoom.style.display = 'grid';
+        if (this.mobileNavBar) this.mobileNavBar.style.display = 'none';
+        this.sectionPlayer.style.display = 'flex';
+        this.sectionSidebar.style.display = 'flex';
       }
     }
 

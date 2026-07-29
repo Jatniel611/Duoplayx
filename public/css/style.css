@@ -909,12 +909,12 @@ body.fullscreen-active .player-section {
   align-items: center;
 }
 
-@media (min-width: 769px) {
+@media (min-width: 1025px) and (min-height: 769px) {
   .mobile-voice-strip { display: none !important; }
 }
 
-/* ─── OPTIMIZACIÓN RESPONSIVE DEFINITIVA PARA MÓVILES Y PANTALLAS PEQUEÑAS ─── */
-@media (max-width: 768px) {
+/* ─── OPTIMIZACIÓN RESPONSIVE DEFINITIVA PARA MÓVILES, ANDROID 720P Y PANTALLAS COMPACTAS ─── */
+@media (max-width: 1024px), (max-height: 768px) {
   html, body {
     height: 100dvh;
     height: 100vh;
