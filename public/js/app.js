@@ -266,6 +266,14 @@ class AppUI {
       });
     }
 
+    // Solución táctil para apertura inmediata del teclado virtual en Android
+    document.addEventListener('touchstart', (e) => {
+      const target = e.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+        setTimeout(() => target.focus(), 50);
+      }
+    }, { passive: true });
+
     // Crear Sala DuoPlayX
     this.btnCreateRoom.addEventListener('click', async () => {
       const username = this.inputUsername.value.trim() || 'Invitado';
@@ -1086,6 +1094,7 @@ class AppUI {
     }
 
     this.currentRoom = roomData;
+    document.body.classList.add('in-room');
     if (this.modalLobby) this.modalLobby.style.display = 'none';
 
     if (this.mainRoom) {
