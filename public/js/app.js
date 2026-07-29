@@ -1147,12 +1147,14 @@ class AppUI {
   }
 
   enterRoom(roomData) {
-    if (!roomData || !roomData.roomId) {
+    if (!roomData || (!roomData.roomId && !roomData.id)) {
       return this.showToast('Error al recibir información de la sala.', 'danger');
     }
 
+    const roomId = roomData.roomId || roomData.id;
+
     // Si ya estábamos en una sala previa, limpiar reproductor
-    if (this.currentRoom && this.currentRoom.roomId !== roomData.roomId) {
+    if (this.currentRoom && (this.currentRoom.roomId || this.currentRoom.id) !== roomId) {
       if (window.playerManager) window.playerManager.destroyPlayer();
     }
 
@@ -1175,23 +1177,16 @@ class AppUI {
         if (this.sectionSidebar) this.sectionSidebar.style.display = 'flex';
       } else {
         this.mainRoom.style.display = 'grid';
-        if (this.mobileNavBar) this.mobileNavBar.style.display = 'flex';
+        if (this.mobileNavBar) this.mobileNavBar.style.display = 'none';
         this.sectionPlayer.style.display = 'flex';
         if (this.sectionSidebar) this.sectionSidebar.style.display = 'flex';
       }
     }
 
     if (this.headerRoomInfo) this.headerRoomInfo.style.display = 'flex';
-    if (this.displayRoomCode) this.displayRoomCode.innerText = roomData.roomId;
+    if (this.displayRoomCode) this.displayRoomCode.innerText = roomId;
     if (this.headerUserAvatar && roomData.user) this.headerUserAvatar.innerText = roomData.user.avatar || '⚡';
     if (this.headerUserName && roomData.user) this.headerUserName.innerText = roomData.user.username || 'Invitado';
-
-    const serverOrigin = window.location.origin;
-    const elShortcode = document.getElementById('codeShortcode');
-    if (elShortcode) elShortcode.innerText = `[duoplayx_watch_party room="${roomData.roomId}" server="${serverOrigin}"]`;
-
-    const elIframe = document.getElementById('codeIframe');
-    if (elIframe) elIframe.innerText = `<iframe src="${serverOrigin}?room=${roomData.roomId}" width="100%" height="650" allow="autoplay; fullscreen; microphone; camera"></iframe>`;
 
     if (roomData.media) {
       const isPlaying = roomData.mediaState ? !!roomData.mediaState.isPlaying : false;
@@ -1213,7 +1208,9 @@ class AppUI {
 
     this.updateUsersList(roomData.users || []);
     this.updateVoiceRoomState(roomData.voiceMembers || [], roomData.users || []);
-    if (roomData.user) this.updateHostControlsView(roomData.user.isHost);
+    
+    const isUserHost = roomData.user ? !!roomData.user.isHost : window.socketManager.isHost;
+    this.updateHostControlsView(isUserHost);
 
     // Unirse automáticamente al canal de voz DuoPlayX & cargar lista de micrófonos
     window.webrtcVoiceManager.joinVoiceRoom();
@@ -1509,20 +1506,16 @@ class AppUI {
   }
 
   updateHostControlsView(isHost) {
-    if (isHost) {
-      this.hostMediaBar.style.display = 'flex';
-      this.hostBtnsGroup.style.display = 'flex';
-      this.guestHostNotice.style.display = 'none';
-      this.guestPlayerLockOverlay.classList.remove('active');
-      this.timeProgressSlider.disabled = false;
-      this.timeProgressSlider.style.pointerEvents = 'auto';
-    } else {
-      this.hostMediaBar.style.display = 'none';
-      this.hostBtnsGroup.style.display = 'none';
-      this.guestHostNotice.style.display = 'block';
-      this.guestPlayerLockOverlay.classList.add('active');
-      this.timeProgressSlider.disabled = true;
-      this.timeProgressSlider.style.pointerEvents = 'none';
+    if (this.hostMediaBar) this.hostMediaBar.style.display = isHost ? 'flex' : 'none';
+    if (this.hostBtnsGroup) this.hostBtnsGroup.style.display = isHost ? 'flex' : 'none';
+    if (this.guestHostNotice) this.guestHostNotice.style.display = isHost ? 'none' : 'block';
+    if (this.guestPlayerLockOverlay) {
+      if (isHost) this.guestPlayerLockOverlay.classList.remove('active');
+      else this.guestPlayerLockOverlay.classList.add('active');
+    }
+    if (this.timeProgressSlider) {
+      this.timeProgressSlider.disabled = !isHost;
+      this.timeProgressSlider.style.pointerEvents = isHost ? 'auto' : 'none';
     }
   }
 
