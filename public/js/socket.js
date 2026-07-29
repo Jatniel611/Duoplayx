@@ -11,22 +11,31 @@ class SocketManager {
     setTimeout(() => this.init(), 50);
   }
 
+  getServerUrl() {
+    if (window.DUOPLAYX_SERVER_URL) return window.DUOPLAYX_SERVER_URL;
+
+    const origin = window.location.origin || '';
+    const isCapacitor = !!window.Capacitor || origin.startsWith('capacitor:');
+    const isFileProtocol = !origin || origin.startsWith('file:') || origin === 'null';
+
+    // 1. Si es App de Android (Capacitor), conectar al servidor Cloud de Render
+    if (isCapacitor) {
+      return 'https://duoplayx.onrender.com';
+    }
+
+    // 2. Si se ejecuta desde archivo local sin servidor web (ej. HTML suelto o ejecutable local sin origin)
+    if (isFileProtocol) {
+      return 'http://localhost:3000';
+    }
+
+    // 3. Navegador Web (Render o Servidor Local http://localhost:3000)
+    return origin;
+  }
+
   init() {
     if (this.socket && this.socket.connected) return;
 
-    let serverUrl = window.location.origin;
-    const isMobileHost = !!window.Capacitor ||
-                         !serverUrl ||
-                         serverUrl.startsWith('file:') ||
-                         serverUrl.startsWith('capacitor:') ||
-                         serverUrl === 'null' ||
-                         serverUrl.includes('localhost') ||
-                         serverUrl.includes('127.0.0.1') ||
-                         serverUrl.includes('10.0.2.2');
-
-    if (isMobileHost) {
-      serverUrl = 'https://duoplayx.onrender.com';
-    }
+    const serverUrl = this.getServerUrl();
 
     if (typeof io === 'undefined') {
       console.warn('⚠️ Librería socket.io client no detectada todavía.');
@@ -35,13 +44,17 @@ class SocketManager {
 
     console.log(`🔌 Conectando Socket.io a: ${serverUrl}`);
     try {
-      this.socket = io(serverUrl, {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: 30,
-        reconnectionDelay: 1000,
-        timeout: 10000
-      });
+      if (!this.socket) {
+        this.socket = io(serverUrl, {
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionAttempts: 30,
+          reconnectionDelay: 1000,
+          timeout: 12000
+        });
+      } else if (!this.socket.connected) {
+        this.socket.connect();
+      }
     } catch (e) {
       console.error('Error al instanciar io():', e);
       return;
@@ -110,15 +123,19 @@ class SocketManager {
       window.appUI.setUserSpeakingIndicator(data.socketId, data.isSpeaking);
     };
     this.socket.on('speaking_state_changed', handleSpeaking);
+
     this.socket.on('webrtc_signal', (data) => {
       window.webrtcVoiceManager.handleIncomingSignal(data.senderSocketId, data.signal);
     });
+
     this.socket.on('new_chat_message', (msg) => {
       window.appUI.appendChatMessage(msg);
     });
+
     this.socket.on('new_reaction', (data) => {
       window.appUI.showFloatingReaction(data.emoji, data.user?.username);
     });
+
     this.socket.on('chat_message_reaction_updated', (data) => {
       window.appUI.updateChatMessageReactions(data.msgId, data.reactions);
     });
@@ -146,7 +163,7 @@ class SocketManager {
 
   createRoom(username, avatar) {
     this.leaveCurrentRoom();
-    if (!this.socket) this.init();
+    if (!this.socket || !this.socket.connected) this.init();
 
     return new Promise((resolve, reject) => {
       const doEmit = () => {
@@ -181,7 +198,7 @@ class SocketManager {
 
   joinRoom(roomId, username, avatar) {
     this.leaveCurrentRoom();
-    if (!this.socket) this.init();
+    if (!this.socket || !this.socket.connected) this.init();
 
     return new Promise((resolve, reject) => {
       const doEmit = () => {
