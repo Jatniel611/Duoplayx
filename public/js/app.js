@@ -1098,15 +1098,17 @@ class AppUI {
     if (this.modalLobby) this.modalLobby.style.display = 'none';
 
     if (this.mainRoom) {
-      if (this.isMobileOrCompactView()) {
+      const isPortrait = window.matchMedia('(orientation: portrait)').matches || window.innerWidth <= 768;
+      if (isPortrait) {
         this.mainRoom.style.display = 'flex';
         if (this.mobileNavBar) this.mobileNavBar.style.display = 'flex';
-        this.setActiveMobileTab('player');
+        this.sectionPlayer.style.display = 'flex';
+        if (this.sectionSidebar) this.sectionSidebar.style.display = 'flex';
       } else {
         this.mainRoom.style.display = 'grid';
-        if (this.mobileNavBar) this.mobileNavBar.style.display = 'none';
+        if (this.mobileNavBar) this.mobileNavBar.style.display = 'flex';
         this.sectionPlayer.style.display = 'flex';
-        this.sectionSidebar.style.display = 'flex';
+        if (this.sectionSidebar) this.sectionSidebar.style.display = 'flex';
       }
     }
 

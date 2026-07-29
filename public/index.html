@@ -104,12 +104,11 @@
       </div>
     </div>
 
-    <!-- MAIN WATCH PARTY SCREEN -->
+    <!-- MAIN WATCH PARTY SCREEN (STRUCTURE MATCHING RAVE BLUEPRINTS) -->
     <main class="main-content" id="mainRoom" style="display: none;">
       
-      <!-- REPRODUCTOR Y CONTROLES ESTILO NETFLIX / HBO MAX -->
+      <!-- REPRODUCTOR Y CONTROLES DE VIDEO -->
       <section class="player-section" id="sectionPlayer">
-
         <!-- BARRA FLOTANTE COMPACTA DE VOZ PARA MÓVIL DuoPlayX -->
         <div class="mobile-voice-strip glass-card" id="mobileVoiceStrip">
           <div class="mobile-voice-info">
@@ -136,44 +135,34 @@
           <span>🔒 <strong>Control Exclusivo del Host (👑):</strong> El Host controla el tiempo y la reproducción. Si usas un archivo MKV, presiona "Activar Audio".</span>
         </div>
 
-        <!-- STAGE DEL REPRODUCTOR ESTILO NETFLIX CON SOMBREADO Y CRISTAL -->
+        <!-- STAGE DEL REPRODUCTOR -->
         <div class="player-stage-container glass-card netflix-stage" id="playerStage">
-          
-          <!-- Capa Transparente Rastreadora de Actividad del Mouse y Clics -->
           <div class="stage-activity-tracker" id="stageActivityTracker"></div>
-
-          <!-- Capa de Bloqueo Inviolable para Invitados -->
           <div class="guest-player-lock-overlay" id="guestPlayerLockOverlay"></div>
 
-          <!-- Capa de Desbloqueo de Autoplay de Video (Permisos del Navegador) -->
           <div class="video-autoplay-overlay" id="videoAutoplayOverlay">
             <button class="btn btn-primary btn-lg" id="btnUnlockVideoAutoplay">
               ▶️ Clic para Activar Video & Sincronización
             </button>
           </div>
 
-          <!-- Capa de Reacciones Flotantes -->
           <div class="reaction-overlay" id="reactionOverlay"></div>
 
-          <!-- Capa / Spinner de Carga de Película -->
           <div class="video-loading-overlay" id="videoLoadingOverlay" style="display: none;">
             <div class="spinner-neon"></div>
             <span class="loading-text" id="videoLoadingText">Cargando película...</span>
           </div>
 
-          <!-- Badge de Sync Status -->
           <div class="sync-status-badge" id="syncStatusBadge">
             <span class="status-indicator synced"></span>
             <span id="syncStatusText">Sincronizado</span>
           </div>
 
-          <!-- BOTÓN FLOTANTE PANTALLA COMPLETA (PARTE SUPERIOR DERECHA DEL VIDEO) -->
           <button class="stage-fullscreen-btn" id="btnToggleFullscreen" title="Ver en Pantalla Completa">
             <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" fill="currentColor"/></svg>
             <span class="hide-mobile">Pantalla Completa</span>
           </button>
 
-          <!-- BARRA DE REACCIONES FLOTANTE SUPERPUESTA SOBRE EL VIDEO -->
           <div class="stage-floating-reactions-bar idle-hidden" id="stageFloatingReactionsBar">
             <button class="stage-reaction-btn" data-emoji="❤️" title="Me encanta">❤️</button>
             <button class="stage-reaction-btn" data-emoji="🔥" title="¡Fuego!">🔥</button>
@@ -183,47 +172,32 @@
             <button class="stage-reaction-btn" data-emoji="🚀" title="Cohete">🚀</button>
           </div>
 
-          <!-- BURBUJA DE CHAT FLOTANTE PARA PANTALLA COMPLETA & MÓVIL (DuoPlayX) -->
           <button class="floating-chat-bubble" id="btnFloatingChatBubble" title="Abrir Chat Flotante">
             <span class="chat-bubble-icon">💬</span>
             <span class="chat-unread-badge" id="chatUnreadBadge" style="display: none;">0</span>
           </button>
 
-          <!-- PANEL OVERLAY DE CHAT FLOTANTE SOBRE EL VIDEO -->
           <div class="floating-chat-overlay" id="floatingChatOverlay" style="display: none;">
             <div class="floating-chat-header">
               <span>💬 Chat en Vivo</span>
               <button class="btn-close-popover" id="btnCloseFloatingChat">✕</button>
             </div>
-            <div class="floating-chat-messages" id="floatingChatMessages">
-              <!-- Mensajes del chat flotante -->
-            </div>
+            <div class="floating-chat-messages" id="floatingChatMessages"></div>
             <form class="floating-chat-input-form" id="floatingChatForm">
               <input type="text" id="inputFloatingChatMessage" class="glass-input" placeholder="Escribe al chat en vivo..." autocomplete="off">
               <button type="submit" class="btn btn-primary btn-sm">➔</button>
             </form>
           </div>
 
-          <!-- Container YouTube Player -->
           <div id="youtubePlayerContainer" class="video-wrapper">
             <div id="ytPlayer"></div>
           </div>
-
-          <!-- Container MP4 Player Nativo HTML5 -->
           <div id="mp4PlayerContainer" class="video-wrapper" style="display: none;">
-            <video id="html5VideoPlayer" playsinline crossorigin="anonymous">
-              Tu navegador no soporta reproducción HTML5.
-            </video>
+            <video id="html5VideoPlayer" playsinline crossorigin="anonymous"></video>
           </div>
-
-          <!-- Container Google Drive Player HTML5 Nativo (Control total: play/pause/seek/calidad) -->
           <div id="gdrivePlayerContainer" class="video-wrapper" style="display: none;">
-            <video id="gdriveVideoPlayer" playsinline crossorigin="anonymous">
-              Tu navegador no soporta reproducción HTML5.
-            </video>
+            <video id="gdriveVideoPlayer" playsinline crossorigin="anonymous"></video>
           </div>
-
-          <!-- Overlay cuando no hay video -->
           <div class="empty-media-overlay" id="emptyMediaOverlay" style="display: none;">
             <div class="empty-icon">🍿</div>
             <h3>Pega una URL de YouTube, Google Drive o MP4 para empezar</h3>
@@ -231,29 +205,22 @@
           </div>
         </div>
 
-        <!-- BARRA DE CONTROLES ESTILO NETFLIX (ICONOS SVG ÉPICOS) -->
+        <!-- BARRA DE CONTROLES ESTILO NETFLIX -->
         <div class="timeline-controls-bar netflix-controls-bar" id="timelineControlsBar">
           <div class="host-btns-group" id="hostBtnsGroup">
-            <!-- ATRASAR 10S SVG -->
             <button class="netflix-btn-ctrl" id="btnHostRewind" title="Atrasar 10s">
               <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M12.5 3C7.25 3 3 7.25 3 12.5C3 17.75 7.25 22 12.5 22C17.75 22 22 17.75 22 12.5H19.5C19.5 16.37 16.37 19.5 12.5 19.5C8.63 19.5 5.5 16.37 5.5 12.5C5.5 8.63 8.63 5.5 12.5 5.5V9L18 4.25L12.5 0V3Z" fill="currentColor"/></svg>
               <span class="sec-label">10</span>
             </button>
-
-            <!-- PLAY / PAUSA PRINCIPAL NETFLIX SVG -->
             <button class="netflix-play-btn" id="btnHostPlayPause" title="Reproducir / Pausar">
               <svg id="svgPlayIcon" viewBox="0 0 24 24" class="svg-main-play"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>
               <svg id="svgPauseIcon" viewBox="0 0 24 24" class="svg-main-pause" style="display:none;"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></svg>
             </button>
-
-            <!-- ADELANTAR 10S SVG -->
             <button class="netflix-btn-ctrl" id="btnHostForward" title="Adelantar 10s">
               <span class="sec-label">10</span>
               <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M11.5 3C16.75 3 21 7.25 21 12.5C21 17.75 16.75 22 11.5 22C6.25 22 2 17.75 2 12.5H4.5C4.5 16.37 7.63 19.5 11.5 19.5C15.37 19.5 18.5 16.37 18.5 12.5C18.5 8.63 15.37 5.5 11.5 5.5V9L6 4.25L11.5 0V3Z" fill="currentColor"/></svg>
             </button>
           </div>
-
-          <!-- SLIDER DE PROGRESO Y RECAUDACIÓN DE TIEMPO -->
           <div class="time-progress-container netflix-progress">
             <span class="netflix-time-badge" id="timeCurrent">00:00</span>
             <div class="netflix-slider-track">
@@ -263,17 +230,13 @@
           </div>
         </div>
 
-        <!-- BARRA INFERIOR DE VOLUMEN, CALIDAD, REACCIONES Y PANTALLA COMPLETA -->
         <div class="player-bottom-bar netflix-bottom-bar">
-          <!-- CONTROL DE VOLUMEN SVG PARA TODOS -->
           <div class="video-volume-box netflix-volume-box">
             <button class="netflix-icon-btn" id="btnToggleVideoMute" title="Silenciar / Activar Sonido Video">
               <svg id="svgVolumeIcon" viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" fill="currentColor"/></svg>
             </button>
             <input type="range" id="inputVideoVolume" min="0" max="100" value="100" step="1" title="Volumen de Película">
           </div>
-
-          <!-- SELECTOR DE CALIDAD DE VIDEO -->
           <div class="video-quality-box netflix-quality-box">
             <span class="quality-label">⚙️</span>
             <select id="selectVideoQuality" class="quality-select-dropdown" title="Calidad de Video">
@@ -284,7 +247,6 @@
               <option value="360">360p SD</option>
             </select>
           </div>
-
           <div class="sync-action-box">
             <button class="btn btn-sm btn-secondary" id="btnResync" title="Forzar Sincronización">
               <span>🔄 Sync</span>
@@ -293,79 +255,96 @@
         </div>
       </section>
 
-      <!-- SIDEBAR LATERAL: CHAT & SALA DE VOZ DEDICADA -->
-      <aside class="sidebar-section glass-card" id="sectionSidebar">
+      <!-- SECCIÓN / PANEL 2: INFORMACIÓN, SYNC, REACCIONES Y PARTICIPANTES -->
+      <section class="center-info-panel" id="centerInfoPanel">
         
-        <!-- PANEL DE VOZ EN VIVO CON LISTA DE MICRÓFONOS E ILUMINACIÓN VERDE -->
-        <div class="voice-room-panel glass-card" id="voiceRoomPanel">
-          <div class="voice-panel-header">
-            <div class="voice-panel-title">
-              <span class="voice-live-dot"></span>
-              <strong>🎙️ Canal de Voz en Vivo</strong>
+        <!-- CARD DE ESTADO DE SYNC (ESTILO RAVE BLUEPRINT) -->
+        <div class="sync-status-card glass-card">
+          <div class="sync-status-info">
+            <span class="sync-icon-spin">🔄</span>
+            <div>
+              <strong>Sync activado</strong>
+              <div class="sync-subtext">El host controla la reproducción para todos.</div>
             </div>
-            <button class="btn btn-sm btn-secondary" id="btnToggleMic">
-              <span id="voiceMicStateIcon">🎙️</span> <span id="voiceMicStateLabel">Encender Micrófono</span>
+          </div>
+          <button class="btn btn-sm btn-outline-fuchsia" id="btnDisableSync">Desactivar Sync</button>
+        </div>
+
+        <!-- CARD DE REACCIONES DE PELÍCULA (ESTILO RAVE BLUEPRINT) -->
+        <div class="movie-reactions-card glass-card">
+          <div class="card-title">Reacciones</div>
+          <div class="reactions-chips-grid">
+            <button class="reaction-chip-btn" data-emoji="❤️">
+              <span class="chip-emoji">❤️</span>
+              <span class="chip-count">128</span>
+            </button>
+            <button class="reaction-chip-btn" data-emoji="🔥">
+              <span class="chip-emoji">🔥</span>
+              <span class="chip-count">76</span>
+            </button>
+            <button class="reaction-chip-btn" data-emoji="😂">
+              <span class="chip-emoji">😂</span>
+              <span class="chip-count">89</span>
+            </button>
+            <button class="reaction-chip-btn" data-emoji="🎉">
+              <span class="chip-emoji">🎉</span>
+              <span class="chip-count">54</span>
+            </button>
+            <button class="reaction-chip-btn" data-emoji="💯">
+              <span class="chip-emoji">💯</span>
+              <span class="chip-count">32</span>
+            </button>
+            <button class="reaction-chip-btn" data-emoji="😮">
+              <span class="chip-emoji">😮</span>
+              <span class="chip-count">21</span>
+            </button>
+            <button class="reaction-chip-btn" data-emoji="🥺">
+              <span class="chip-emoji">🥺</span>
+              <span class="chip-count">18</span>
+            </button>
+            <button class="reaction-chip-btn add-custom-reaction">
+              <span class="chip-emoji">＋</span>
             </button>
           </div>
+        </div>
 
-          <!-- SELECTOR DE DISPOSITIVOS DE MICRÓFONO -->
-          <div class="mic-select-row" id="micSelectRow">
-            <label for="selectMicDevice" class="mic-label">🎙️ Dispositivo:</label>
-            <select id="selectMicDevice" class="glass-input mic-select" title="Seleccionar Micrófono">
-              <option value="">Cargando micrófonos...</option>
-            </select>
-          </div>
-
-          <!-- LISTA VISUAL DE MIEMBROS EN LA SALA DE VOZ CON HALO VERDE DE HABLA -->
-          <div class="voice-members-grid" id="voiceMembersGrid">
-            <div class="voice-empty-state">Canal de voz activo. Presiona Encender Micrófono para hablar.</div>
+        <!-- CARD DE PARTICIPANTES EN SALA DE VOZ (ESTILO RAVE BLUEPRINT) -->
+        <div class="participants-card glass-card">
+          <div class="card-title">Participantes (<span id="userCountInline">0</span>)</div>
+          <div class="participants-avatars-row" id="voiceMembersGrid">
+            <!-- Avatares redondos con halos verdes neón -->
           </div>
         </div>
 
-        <!-- TABS BAR -->
+        <!-- BANNER DE AVISO (ESTILO RAVE BLUEPRINT) -->
+        <div class="processing-notice-card glass-card" id="noticeBannerCard">
+          <div class="notice-left">
+            <span class="notice-info-icon">ℹ️</span>
+            <span>El video está siendo procesado. Volve más tarde para continuar viendo.</span>
+          </div>
+          <button class="btn btn-sm btn-purple-pill" id="btnDismissNotice">Entendido</button>
+        </div>
+
+      </section>
+
+      <!-- SECCIÓN / PANEL 3: CHAT Y GIFS (ESTILO RAVE BLUEPRINT) -->
+      <section class="sidebar-section glass-card" id="sectionSidebar">
         <div class="sidebar-tabs">
-          <button class="tab-btn active" data-tab="tabChat">
-            💬 Chat & GIFs
-          </button>
-          <button class="tab-btn" data-tab="tabUsers">
-            👥 Participantes (<span id="userCount">0</span>)
-          </button>
+          <button class="tab-btn active" data-tab="tabChat">Chat</button>
+          <button class="tab-btn" data-tab="tabGifs">GIFs</button>
         </div>
 
-        <!-- TAB CHAT -->
+        <!-- MENSAJE FIJADO (ESTILO RAVE BLUEPRINT) -->
+        <div class="pinned-notice-banner" id="pinnedNoticeBanner">
+          <div class="pinned-title">📌 Mensaje fijado por <strong>JATXPLAY 👑</strong></div>
+          <div class="pinned-text">¡Bienvenidos a la sala! Por favor, respeten a los demás y disfruten de la película 🍿</div>
+        </div>
+
+        <!-- LISTA DE MENSAJES DEL CHAT -->
         <div class="tab-content active" id="tabChat">
           <div class="chat-messages" id="chatMessages">
             <div class="chat-welcome-notice">
-              <span>✨ ¡Bienvenidos a DuoPlayX! Chatea, busca GIFs, envía Emojis y entra a la Sala de Voz en Vivo.</span>
-            </div>
-          </div>
-
-          <!-- POPOVER BUSCADOR DE GIFS MULTI-MOTOR EN TIEMPO REAL -->
-          <div class="gif-picker-popover" id="gifPickerPopover" style="display: none;">
-            <div class="gif-picker-header">
-              <span>🖼️ Buscador de GIFs Animados</span>
-              <button class="btn-close-popover" id="btnCloseGifPicker">✕</button>
-            </div>
-            <div class="gif-search-bar">
-              <input type="text" id="inputGifSearch" class="glass-input" placeholder="Escribe para buscar (ej: perrito, salto, enojado, risa)...">
-            </div>
-
-            <!-- SUGERENCIAS EN TIEMPO REAL -->
-            <div class="gif-suggestions-box" id="gifSuggestionsBox">
-              <span class="suggestion-chip" data-query="perrito">🐶 perrito</span>
-              <span class="suggestion-chip" data-query="salto">🦘 salto</span>
-              <span class="suggestion-chip" data-query="enojado">😡 enojado</span>
-              <span class="suggestion-chip" data-query="risa">😂 risa</span>
-              <span class="suggestion-chip" data-query="baile">💃 baile</span>
-            </div>
-
-            <div class="gif-direct-link-box">
-              <input type="text" id="inputDirectGifUrl" class="glass-input" placeholder="O pega enlace directo .gif aquí...">
-              <button class="btn btn-secondary btn-xs" id="btnSendDirectGif">Mandar</button>
-            </div>
-
-            <div class="gif-grid" id="gifGrid">
-              <!-- GIFs renderizados -->
+              <span>✨ ¡Bienvenidos a DuoPlayX! Chatea, envía Emojis y habla en la Sala de Voz.</span>
             </div>
           </div>
 
@@ -382,30 +361,21 @@
               <span class="emoji-cat-chip" data-cat="animals">🐱 Animales</span>
               <span class="emoji-cat-chip" data-cat="movies">🍿 Pelis</span>
             </div>
-            <div class="emoji-grid" id="emojiGrid">
-              <!-- Emojis renderizados -->
-            </div>
+            <div class="emoji-grid" id="emojiGrid"></div>
           </div>
           
+          <!-- INPUT DEL CHAT (ESTILO RAVE BLUEPRINT) -->
           <form class="chat-input-form" id="chatForm">
-            <button type="button" class="btn btn-secondary btn-icon" id="btnOpenEmojiPicker" title="Insertar Emoji">
+            <input type="text" id="inputChatMessage" class="glass-input" placeholder="Escribe un mensaje..." autocomplete="off">
+            <button type="button" class="btn btn-icon btn-emoji-trigger" id="btnOpenEmojiPicker" title="Insertar Emoji">
               <span>😊</span>
             </button>
-            <input type="text" id="inputChatMessage" class="glass-input" placeholder="Escribe un mensaje..." autocomplete="off">
-            <button type="submit" class="btn btn-primary btn-icon">
+            <button type="submit" class="btn btn-primary btn-icon btn-send-purple">
               <span>➔</span>
             </button>
           </form>
         </div>
-
-        <!-- TAB PARTICIPANTES -->
-        <div class="tab-content" id="tabUsers">
-          <div class="users-list" id="usersList">
-            <!-- Renderizado dinámico de usuarios -->
-          </div>
-        </div>
-
-      </aside>
+      </section>
 
     </main>
 

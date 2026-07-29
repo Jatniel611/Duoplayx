@@ -1157,8 +1157,273 @@ body.fullscreen-active .player-section {
     box-shadow: 0 0 25px rgba(16, 185, 129, 0.95), 0 0 12px rgba(16, 185, 129, 0.6) !important;
   }
 
-  .mic-icon { font-size: 1.5rem; color: #fff; }
-  .nav-label-mic { font-size: 0.62rem; font-weight: 800; color: #f472b6; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+/* ─── NUEVAS CARDS Y PANELES ESTILO RAVE BLUEPRINT ─── */
+.center-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sync-status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(14, 10, 26, 0.85);
+  border: 1px solid rgba(0, 255, 136, 0.25);
+  border-radius: var(--radius-md);
+}
+
+.sync-status-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.sync-icon-spin {
+  font-size: 1.2rem;
+  color: #00ff88;
+  animation: spin 6s linear infinite;
+}
+
+.sync-subtext {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.btn-outline-fuchsia {
+  border: 1px solid var(--accent-fuchsia);
+  color: var(--accent-fuchsia);
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.movie-reactions-card {
+  padding: 10px 14px;
+  background: rgba(14, 10, 26, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+}
+
+.card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.reactions-chips-grid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reaction-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 4px 10px;
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.reaction-chip-btn:hover, .reaction-chip-btn:active {
+  transform: scale(1.15);
+  background: rgba(255, 0, 127, 0.25);
+  border-color: var(--accent-fuchsia);
+}
+
+.chip-emoji { font-size: 1.1rem; }
+.chip-count { font-size: 0.72rem; color: var(--text-muted); font-weight: 700; }
+
+.participants-card {
+  padding: 10px 14px;
+  background: rgba(14, 10, 26, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+}
+
+.participants-avatars-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.participant-avatar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1rem;
+  color: #fff;
+  position: relative;
+  border: 2px solid transparent;
+}
+
+.avatar-circle.speaking {
+  border-color: #00ff88;
+  box-shadow: 0 0 12px #00ff88;
+}
+
+.participant-name {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.processing-notice-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(88, 28, 135, 0.35);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+}
+
+.notice-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-purple-pill {
+  background: var(--accent-gradient);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pinned-notice-banner {
+  background: rgba(30, 20, 50, 0.6);
+  border-left: 3px solid var(--accent-fuchsia);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.pinned-title {
+  color: #f472b6;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.pinned-text {
+  color: var(--text-muted);
+}
+
+.btn-emoji-trigger {
+  background: transparent !important;
+  border: none !important;
+  font-size: 1.2rem !important;
+  cursor: pointer !important;
+  padding: 0 4px !important;
+}
+
+.btn-send-purple {
+  background: var(--accent-gradient) !important;
+  border-radius: 50% !important;
+  width: 36px !important;
+  height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 900 !important;
+  box-shadow: 0 0 15px rgba(255, 0, 127, 0.5) !important;
+}
+
+/* PORTRAIT LAYOUT (ESTILO IMAGEN 1: VERTICALLY STACKED 1-COLUMN) */
+@media (orientation: portrait) {
+  html, body {
+    overflow-y: auto !important;
+    position: relative !important;
+    height: auto !important;
+  }
+
+  .app-container {
+    height: auto !important;
+    overflow-y: auto !important;
+  }
+
+  #mainRoom {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    padding-bottom: 75px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .player-section, .center-info-panel, .sidebar-section {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .sidebar-section {
+    min-height: 450px !important;
+  }
+}
+
+/* LANDSCAPE LAYOUT (ESTILO IMAGEN 2: 3-COLUMN HORIZONTAL GRID) */
+@media (orientation: landscape) and (min-width: 600px) {
+  #mainRoom {
+    display: grid !important;
+    grid-template-columns: 46% 25% 29% !important;
+    gap: 10px !important;
+    height: calc(100vh - 58px) !important;
+    overflow: hidden !important;
+    padding-bottom: 60px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .player-section {
+    overflow-y: auto !important;
+    height: 100% !important;
+  }
+
+  .center-info-panel {
+    overflow-y: auto !important;
+    height: 100% !important;
+  }
+
+  .sidebar-section {
+    overflow-y: auto !important;
+    height: 100% !important;
+  }
 }
 
 @media (max-width: 480px) {
