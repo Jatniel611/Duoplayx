@@ -885,22 +885,14 @@ class AppUI {
 
   showStageFloatingUI(visible) {
     const stageFloatingReactionsBar = document.getElementById('stageFloatingReactionsBar');
+    const controlsBar = document.getElementById('timelineControlsBar');
     const stageElements = [
       this.stageFullscreenBtn,
       this.btnFloatingChatBubble,
       this.syncStatusBadge,
-      stageFloatingReactionsBar
+      stageFloatingReactionsBar,
+      controlsBar
     ];
-
-    // En pantalla completa, incluir también las barras de controles inferiores
-    const stage = this.playerStage || document.getElementById('playerStage');
-    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement) || (stage && stage.classList.contains('fullscreen-active'));
-    if (isFS) {
-      const controlsBar = document.getElementById('timelineControlsBar');
-      const bottomBar = document.querySelector('.player-bottom-bar');
-      if (controlsBar) stageElements.push(controlsBar);
-      if (bottomBar) stageElements.push(bottomBar);
-    }
 
     stageElements.forEach(el => {
       if (el) {

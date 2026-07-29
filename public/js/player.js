@@ -303,17 +303,16 @@ class PlayerManager {
       this.hlsInstance = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
-        maxBufferLength: 180,              // ¡3 Minutos de video cargado por adelantado en memoria RAM!
-        maxMaxBufferLength: 600,           // ¡Hasta 10 Minutos de búfer máximo si hay ancho de banda!
-        maxBufferSize: 250 * 1024 * 1024,  // ¡250 Megabytes de RAM dedicados exclusivamente al streaming!
-        backBufferLength: 120,             // ¡Mantiene 2 minutos de video ya visto en RAM para retrocesos instantáneos!
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        maxBufferSize: 60 * 1024 * 1024,
+        backBufferLength: 30,
         liveSyncDurationCount: 3,
-        nudgeMaxRetries: 15,
-        maxBufferHole: 0.8,
-        highBufferWatchdogPeriod: 3,
+        nudgeMaxRetries: 5,
+        maxBufferHole: 0.5,
+        highBufferWatchdogPeriod: 2,
         capLevelToPlayerSize: false,
-        startLevel: -1,
-        abrEwmaDefaultEstimate: 5000000
+        startLevel: -1
       });
       this.hlsInstance.loadSource(proxyUrl);
       this.hlsInstance.attachMedia(this.mp4Video);

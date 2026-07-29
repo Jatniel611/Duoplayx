@@ -193,30 +193,30 @@
             <h3>Pega una URL de YouTube, Google Drive o MP4 para empezar</h3>
             <p>El Host tiene el control de la película mientras hablas en la Sala de Voz.</p>
           </div>
-        </div>
 
-        <!-- BARRA DE CONTROLES ESTILO NETFLIX -->
-        <div class="timeline-controls-bar netflix-controls-bar" id="timelineControlsBar">
-          <div class="host-btns-group" id="hostBtnsGroup">
-            <button class="netflix-btn-ctrl" id="btnHostRewind" title="Atrasar 10s">
-              <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M12.5 3C7.25 3 3 7.25 3 12.5C3 17.75 7.25 22 12.5 22C17.75 22 22 17.75 22 12.5H19.5C19.5 16.37 16.37 19.5 12.5 19.5C8.63 19.5 5.5 16.37 5.5 12.5C5.5 8.63 8.63 5.5 12.5 5.5V9L18 4.25L12.5 0V3Z" fill="currentColor"/></svg>
-              <span class="sec-label">10</span>
-            </button>
-            <button class="netflix-play-btn" id="btnHostPlayPause" title="Reproducir / Pausar">
-              <svg id="svgPlayIcon" viewBox="0 0 24 24" class="svg-main-play"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>
-              <svg id="svgPauseIcon" viewBox="0 0 24 24" class="svg-main-pause" style="display:none;"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></svg>
-            </button>
-            <button class="netflix-btn-ctrl" id="btnHostForward" title="Adelantar 10s">
-              <span class="sec-label">10</span>
-              <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M11.5 3C16.75 3 21 7.25 21 12.5C21 17.75 16.75 22 11.5 22C6.25 22 2 17.75 2 12.5H4.5C4.5 16.37 7.63 19.5 11.5 19.5C15.37 19.5 18.5 16.37 18.5 12.5C18.5 8.63 15.37 5.5 11.5 5.5V9L6 4.25L11.5 0V3Z" fill="currentColor"/></svg>
-            </button>
-          </div>
-          <div class="time-progress-container netflix-progress">
-            <span class="netflix-time-badge" id="timeCurrent">00:00</span>
-            <div class="netflix-slider-track">
-              <input type="range" id="timeProgressSlider" min="0" max="100" value="0" step="0.1">
+          <!-- BARRA DE CONTROLES SOBRE EL VIDEO (ESTILO NETFLIX / RAVE QUE DESVANECEN) -->
+          <div class="timeline-controls-bar netflix-controls-bar idle-hidden" id="timelineControlsBar">
+            <div class="host-btns-group" id="hostBtnsGroup">
+              <button class="netflix-btn-ctrl" id="btnHostRewind" title="Atrasar 10s">
+                <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M12.5 3C7.25 3 3 7.25 3 12.5C3 17.75 7.25 22 12.5 22C17.75 22 22 17.75 22 12.5H19.5C19.5 16.37 16.37 19.5 12.5 19.5C8.63 19.5 5.5 16.37 5.5 12.5C5.5 8.63 8.63 5.5 12.5 5.5V9L18 4.25L12.5 0V3Z" fill="currentColor"/></svg>
+                <span class="sec-label">10</span>
+              </button>
+              <button class="netflix-play-btn" id="btnHostPlayPause" title="Reproducir / Pausar">
+                <svg id="svgPlayIcon" viewBox="0 0 24 24" class="svg-main-play"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>
+                <svg id="svgPauseIcon" viewBox="0 0 24 24" class="svg-main-pause" style="display:none;"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></svg>
+              </button>
+              <button class="netflix-btn-ctrl" id="btnHostForward" title="Adelantar 10s">
+                <span class="sec-label">10</span>
+                <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M11.5 3C16.75 3 21 7.25 21 12.5C21 17.75 16.75 22 11.5 22C6.25 22 2 17.75 2 12.5H4.5C4.5 16.37 7.63 19.5 11.5 19.5C15.37 19.5 18.5 16.37 18.5 12.5C18.5 8.63 15.37 5.5 11.5 5.5V9L6 4.25L11.5 0V3Z" fill="currentColor"/></svg>
+              </button>
             </div>
-            <span class="netflix-time-badge" id="timeDuration">00:00</span>
+            <div class="time-progress-container netflix-progress">
+              <span class="netflix-time-badge" id="timeCurrent">00:00</span>
+              <div class="netflix-slider-track">
+                <input type="range" id="timeProgressSlider" min="0" max="100" value="0" step="0.1">
+              </div>
+              <span class="netflix-time-badge" id="timeDuration">00:00</span>
+            </div>
           </div>
         </div>
 
@@ -247,16 +247,6 @@
 
       <!-- SECCIÓN / PANEL LATERAL: CHAT Y PARTICIPANTES (AMIGOS) -->
       <section class="sidebar-section glass-card" id="sectionSidebar">
-        <div class="sidebar-tabs">
-          <button class="tab-btn active" data-tab="tabChat">💬 Chat en Vivo</button>
-          <button class="tab-btn" data-tab="tabUsers">👥 Participantes (<span id="userCount">0</span>)</button>
-        </div>
-
-        <!-- MENSAJE FIJADO -->
-        <div class="pinned-notice-banner" id="pinnedNoticeBanner">
-          <div class="pinned-title">📌 Mensaje fijado por <strong>JATXPLAY 👑</strong></div>
-          <div class="pinned-text">¡Bienvenidos a la sala! Por favor, respeten a los demás y disfruten de la película 🍿</div>
-        </div>
 
         <!-- TAB CHAT -->
         <div class="tab-content active" id="tabChat">
