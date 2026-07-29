@@ -589,6 +589,46 @@ body.fullscreen-active .player-section {
   border-radius: 0 !important;
 }
 
+/* BARRA FLOTANTE DE REACCIONES SUPERPUESTA SOBRE EL VIDEO EN PANTALLA COMPLETA & STAGE */
+.stage-floating-reactions-bar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 8, 20, 0.78);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 0, 127, 0.4);
+  border-radius: var(--radius-full);
+  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 45;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7), 0 0 15px rgba(255, 0, 127, 0.2);
+}
+
+.stage-floating-reactions-bar.idle-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translate(-50%, -12px) !important;
+}
+
+.stage-reaction-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 50%;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.stage-reaction-btn:hover, .stage-reaction-btn:active {
+  transform: scale(1.4);
+  background: rgba(255, 0, 127, 0.25);
+}
+
 /* REACCIONES A MENSAJES DE CHAT (INTERACTIVAS ESTILO DISCORD/SLACK) */
 .chat-bubble {
   position: relative;

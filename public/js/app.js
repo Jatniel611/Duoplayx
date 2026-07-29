@@ -245,6 +245,20 @@ class AppUI {
       });
     }
 
+    // Vincular botones de la barra de reacciones flotante superpuesta sobre el video
+    const stageReactionsBar = document.getElementById('stageFloatingReactionsBar');
+    if (stageReactionsBar) {
+      stageReactionsBar.querySelectorAll('.stage-reaction-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const emoji = btn.dataset.emoji;
+          if (emoji && window.socketManager) {
+            window.socketManager.sendReaction(emoji);
+          }
+        });
+      });
+    }
+
     if (this.btnUnlockVideoAutoplay) {
       this.btnUnlockVideoAutoplay.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -831,10 +845,12 @@ class AppUI {
   }
 
   showStageFloatingUI(visible) {
+    const stageFloatingReactionsBar = document.getElementById('stageFloatingReactionsBar');
     const stageElements = [
       this.stageFullscreenBtn,
       this.btnFloatingChatBubble,
-      this.syncStatusBadge
+      this.syncStatusBadge,
+      stageFloatingReactionsBar
     ];
 
     // En pantalla completa, incluir también las barras de controles inferiores

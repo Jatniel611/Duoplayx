@@ -173,6 +173,16 @@
             <span class="hide-mobile">Pantalla Completa</span>
           </button>
 
+          <!-- BARRA DE REACCIONES FLOTANTE SUPERPUESTA SOBRE EL VIDEO -->
+          <div class="stage-floating-reactions-bar idle-hidden" id="stageFloatingReactionsBar">
+            <button class="stage-reaction-btn" data-emoji="❤️" title="Me encanta">❤️</button>
+            <button class="stage-reaction-btn" data-emoji="🔥" title="¡Fuego!">🔥</button>
+            <button class="stage-reaction-btn" data-emoji="😂" title="Risa">😂</button>
+            <button class="stage-reaction-btn" data-emoji="🎉" title="Fiesta">🎉</button>
+            <button class="stage-reaction-btn" data-emoji="👏" title="Aplausos">👏</button>
+            <button class="stage-reaction-btn" data-emoji="🚀" title="Cohete">🚀</button>
+          </div>
+
           <!-- BURBUJA DE CHAT FLOTANTE PARA PANTALLA COMPLETA & MÓVIL (DuoPlayX) -->
           <button class="floating-chat-bubble" id="btnFloatingChatBubble" title="Abrir Chat Flotante">
             <span class="chat-bubble-icon">💬</span>
@@ -389,9 +399,6 @@
           <form class="chat-input-form" id="chatForm">
             <button type="button" class="btn btn-secondary btn-icon" id="btnOpenEmojiPicker" title="Insertar Emoji">
               <span>😊</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-icon" id="btnOpenGifPicker" title="Mandar GIF">
-              <span>🖼️</span>
             </button>
             <input type="text" id="inputChatMessage" class="glass-input" placeholder="Escribe un mensaje..." autocomplete="off">
             <button type="submit" class="btn btn-primary btn-icon">
