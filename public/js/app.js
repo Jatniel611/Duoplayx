@@ -280,43 +280,47 @@ class AppUI {
     }, { passive: true });
 
     // Crear Sala DuoPlayX
-    this.btnCreateRoom.addEventListener('click', async () => {
-      const username = this.inputUsername.value.trim() || 'Invitado';
-      this.btnCreateRoom.disabled = true;
-      this.btnCreateRoom.innerHTML = '<span>⚡ Creando sala...</span>';
-      try {
-        const roomData = await window.socketManager.createRoom(username, this.selectedAvatar);
-        this.enterRoom(roomData);
-        this.showToast('¡Bienvenido a DuoPlayX! Eres el Host (👑) y tienes el control exclusivo.', 'success');
-      } catch (err) {
-        console.error('Error al crear sala:', err);
-        this.showToast(typeof err === 'string' ? err : 'Error al conectar con el servidor. Reintenta.', 'danger');
-      } finally {
-        this.btnCreateRoom.disabled = false;
-        this.btnCreateRoom.innerHTML = '<span>✨ Crear Sala (Como Host 👑)</span>';
-      }
-    });
+    if (this.btnCreateRoom) {
+      this.btnCreateRoom.addEventListener('click', async () => {
+        const username = (this.inputUsername && this.inputUsername.value.trim()) || 'Invitado';
+        this.btnCreateRoom.disabled = true;
+        this.btnCreateRoom.innerHTML = '<span>⚡ Creando sala...</span>';
+        try {
+          const roomData = await window.socketManager.createRoom(username, this.selectedAvatar);
+          this.enterRoom(roomData);
+          this.showToast('¡Bienvenido a DuoPlayX! Eres el Host (👑) y tienes el control exclusivo.', 'success');
+        } catch (err) {
+          console.error('Error al crear sala:', err);
+          this.showToast(typeof err === 'string' ? err : 'Error al conectar con el servidor. Reintenta.', 'danger');
+        } finally {
+          this.btnCreateRoom.disabled = false;
+          this.btnCreateRoom.innerHTML = '<span>✨ Crear Sala (Como Host 👑)</span>';
+        }
+      });
+    }
 
     // Unirse a Sala
-    this.btnJoinRoom.addEventListener('click', async () => {
-      const username = this.inputUsername.value.trim() || 'Invitado';
-      const code = this.inputRoomCode.value.trim();
-      if (!code) return this.showToast('Introduce un código de sala.', 'warning');
+    if (this.btnJoinRoom) {
+      this.btnJoinRoom.addEventListener('click', async () => {
+        const username = (this.inputUsername && this.inputUsername.value.trim()) || 'Invitado';
+        const code = this.inputRoomCode ? this.inputRoomCode.value.trim() : '';
+        if (!code) return this.showToast('Introduce un código de sala.', 'warning');
 
-      this.btnJoinRoom.disabled = true;
-      this.btnJoinRoom.innerText = 'Uniendo...';
-      try {
-        const roomData = await window.socketManager.joinRoom(code, username, this.selectedAvatar);
-        this.enterRoom(roomData);
-        this.showToast(`Unido a la sala ${roomData.roomId}`, 'success');
-      } catch (err) {
-        console.error('Error al unirse a sala:', err);
-        this.showToast(typeof err === 'string' ? err : 'No se pudo unirse a la sala.', 'danger');
-      } finally {
-        this.btnJoinRoom.disabled = false;
-        this.btnJoinRoom.innerText = 'Unirme';
-      }
-    });
+        this.btnJoinRoom.disabled = true;
+        this.btnJoinRoom.innerText = 'Uniendo...';
+        try {
+          const roomData = await window.socketManager.joinRoom(code, username, this.selectedAvatar);
+          this.enterRoom(roomData);
+          this.showToast(`Unido a la sala ${roomData.roomId}`, 'success');
+        } catch (err) {
+          console.error('Error al unirse a sala:', err);
+          this.showToast(typeof err === 'string' ? err : 'No se pudo unirse a la sala.', 'danger');
+        } finally {
+          this.btnJoinRoom.disabled = false;
+          this.btnJoinRoom.innerText = 'Unirme';
+        }
+      });
+    }
 
     // MODAL DE CREAR / CAMBIAR DE SALA EN CUALQUIER MOMENTO
     if (this.btnOpenSwitchRoomModal) {
@@ -375,112 +379,120 @@ class AppUI {
     }
 
     // Cambiar Video (Solo Host)
-    this.btnChangeMedia.addEventListener('click', async () => {
-      if (!window.socketManager.isHost) {
-        return this.showToast('⛔ Solo el Host (👑) puede cambiar la película.', 'warning');
-      }
-
-      const rawUrl = this.inputMediaUrl.value.trim();
-      if (!rawUrl) return this.showToast('Ingresa una URL válida de YouTube, Google Drive, Pixeldrain o Servidor Embed.', 'warning');
-
-      // 1. Detección instantánea sin delay ni peticiones de red para YouTube, Drive, Pixeldrain y MP4 directos
-      const fastMedia = this.quickParseMedia(rawUrl);
-      if (fastMedia) {
-        console.log('[FastParse] Medio detectado de forma instantánea:', fastMedia);
-        await window.socketManager.emitChangeMedia(fastMedia);
-        this.inputMediaUrl.value = '';
-        return;
-      }
-
-      // 2. Extracción de servidores Embed (vimeus.com, vimeos.net, etc.) vía backend
-      this.showToast('🔍 Extrayendo fuente de película del servidor...', 'info');
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      try {
-        const res = await fetch('/api/resolve-media', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: rawUrl }),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-          throw new Error(`HTTP Error ${res.status}`);
+    if (this.btnChangeMedia) {
+      this.btnChangeMedia.addEventListener('click', async () => {
+        if (!window.socketManager.isHost) {
+          return this.showToast('⛔ Solo el Host (👑) puede cambiar la película.', 'warning');
         }
 
-        const mediaData = await res.json();
+        const rawUrl = this.inputMediaUrl ? this.inputMediaUrl.value.trim() : '';
+        if (!rawUrl) return this.showToast('Ingresa una URL válida de YouTube, Google Drive, Pixeldrain o Servidor Embed.', 'warning');
 
-        if (mediaData && mediaData.error) {
-          return this.showToast(mediaData.error, 'danger');
+        // 1. Detección instantánea sin delay ni peticiones de red para YouTube, Drive, Pixeldrain y MP4 directos
+        const fastMedia = this.quickParseMedia(rawUrl);
+        if (fastMedia) {
+          console.log('[FastParse] Medio detectado de forma instantánea:', fastMedia);
+          await window.socketManager.emitChangeMedia(fastMedia);
+          if (this.inputMediaUrl) this.inputMediaUrl.value = '';
+          return;
         }
 
-        await window.socketManager.emitChangeMedia(mediaData || { type: 'mp4', url: rawUrl });
-        this.inputMediaUrl.value = '';
-      } catch (err) {
-        clearTimeout(timeoutId);
-        console.warn('Extracción de servidor diferida, cargando como fuente directa:', err.message);
-        await window.socketManager.emitChangeMedia({ type: 'mp4', url: rawUrl });
-        this.inputMediaUrl.value = '';
-      }
-    });
+        // 2. Extracción de servidores Embed (vimeus.com, vimeos.net, etc.) vía backend
+        this.showToast('🔍 Extrayendo fuente de película del servidor...', 'info');
 
-    // SELECTOR DE CALIDAD DE VIDEO
-    this.selectVideoQuality.addEventListener('change', (e) => {
-      const quality = e.target.value;
-      if (window.playerManager.setVideoQuality) {
-        window.playerManager.setVideoQuality(quality);
-      }
-    });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        try {
+          const res = await fetch('/api/resolve-media', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: rawUrl }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (!res.ok) {
+            throw new Error(`HTTP Error ${res.status}`);
+          }
+
+          const mediaData = await res.json();
+
+          if (mediaData && mediaData.error) {
+            return this.showToast(mediaData.error, 'danger');
+          }
+
+          await window.socketManager.emitChangeMedia(mediaData || { type: 'mp4', url: rawUrl });
+          if (this.inputMediaUrl) this.inputMediaUrl.value = '';
+        } catch (err) {
+          clearTimeout(timeoutId);
+          console.warn('Extracción de servidor diferida, cargando como fuente directa:', err.message);
+          await window.socketManager.emitChangeMedia({ type: 'mp4', url: rawUrl });
+          if (this.inputMediaUrl) this.inputMediaUrl.value = '';
+        }
+      });
+    }
+
+    // SELECTOR DE CALIDAD DE VIDEO (Si existe)
+    if (this.selectVideoQuality) {
+      this.selectVideoQuality.addEventListener('change', (e) => {
+        const quality = e.target.value;
+        if (window.playerManager.setVideoQuality) {
+          window.playerManager.setVideoQuality(quality);
+        }
+      });
+    }
 
     // CONTROL DE VOLUMEN LOCAL DE VIDEO
-    this.inputVideoVolume.addEventListener('input', (e) => {
-      const val = parseInt(e.target.value);
-      window.playerManager.setLocalVolume(val);
-    });
+    if (this.inputVideoVolume) {
+      this.inputVideoVolume.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        window.playerManager.setLocalVolume(val);
+      });
+    }
 
-    this.btnToggleVideoMute.addEventListener('click', () => {
-      const isMuted = window.playerManager.toggleLocalMute();
-      if (isMuted) {
-        this.inputVideoVolume.value = 0;
-      } else {
-        this.inputVideoVolume.value = 100;
-      }
-    });
+    if (this.btnToggleVideoMute) {
+      this.btnToggleVideoMute.addEventListener('click', () => {
+        const isMuted = window.playerManager.toggleLocalMute();
+        if (this.inputVideoVolume) {
+          this.inputVideoVolume.value = isMuted ? 0 : 100;
+        }
+      });
+    }
 
     // PANTALLA COMPLETA 100% ESTABLE (ANDROID, WINDOWS & BROWSER)
-    this.btnToggleFullscreen.addEventListener('click', () => {
-      const stage = this.playerStage || document.getElementById('playerStage');
-      if (!stage) return;
+    if (this.btnToggleFullscreen) {
+      this.btnToggleFullscreen.addEventListener('click', () => {
+        const stage = this.playerStage || document.getElementById('playerStage');
+        if (!stage) return;
 
-      const isAndroidOrMobile = !!window.Capacitor || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const isNativeFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement);
-      const isCssFS = document.body.classList.contains('fullscreen-active') || stage.classList.contains('fullscreen-active');
+        const isAndroidOrMobile = !!window.Capacitor || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isNativeFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement);
+        const isCssFS = document.body.classList.contains('fullscreen-active') || stage.classList.contains('fullscreen-active');
 
-      if (isNativeFS || isCssFS) {
-        this.exitFullscreen();
-      } else {
-        // ENTRAR A PANTALLA COMPLETA
-        this._isExitingFullscreen = false;
-        document.body.classList.add('fullscreen-active');
-        stage.classList.add('fullscreen-active');
+        if (isNativeFS || isCssFS) {
+          this.exitFullscreen();
+        } else {
+          // ENTRAR A PANTALLA COMPLETA
+          this._isExitingFullscreen = false;
+          document.body.classList.add('fullscreen-active');
+          stage.classList.add('fullscreen-active');
 
-        if (!isAndroidOrMobile) {
-          const docEl = document.documentElement;
-          let promise = null;
-          if (docEl.requestFullscreen) promise = docEl.requestFullscreen();
-          else if (docEl.webkitRequestFullscreen) promise = docEl.webkitRequestFullscreen();
-          else if (stage.requestFullscreen) promise = stage.requestFullscreen();
+          if (!isAndroidOrMobile) {
+            const docEl = document.documentElement;
+            let promise = null;
+            if (docEl.requestFullscreen) promise = docEl.requestFullscreen();
+            else if (docEl.webkitRequestFullscreen) promise = docEl.webkitRequestFullscreen();
+            else if (stage.requestFullscreen) promise = stage.requestFullscreen();
 
-          if (promise && promise.catch) {
-            promise.catch(e => console.warn('Native FS fallback to CSS:', e.message));
+            if (promise && promise.catch) {
+              promise.catch(e => console.warn('Native FS fallback to CSS:', e.message));
+            }
           }
+          this.handleFullscreenChange(true);
         }
-        this.handleFullscreenChange(true);
-      }
-    });
+      });
+    }
 
     // Interceptar Botón Físico / Gesto de Ir Atrás en Android
     let backPressCount = 0;
@@ -538,24 +550,32 @@ class AppUI {
       });
     }
 
-    // Controles Personalizados del Host (Estilo Netflix)
-    this.btnHostPlayPause.addEventListener('click', () => {
-      window.playerManager.hostTogglePlayPause();
-    });
+    // Controles Personalizados del Host
+    if (this.btnHostPlayPause) {
+      this.btnHostPlayPause.addEventListener('click', () => {
+        window.playerManager.hostTogglePlayPause();
+      });
+    }
 
-    this.btnHostRewind.addEventListener('click', () => {
-      window.playerManager.hostSkip(-10);
-    });
+    if (this.btnHostRewind) {
+      this.btnHostRewind.addEventListener('click', () => {
+        window.playerManager.hostSkip(-10);
+      });
+    }
 
-    this.btnHostForward.addEventListener('click', () => {
-      window.playerManager.hostSkip(10);
-    });
+    if (this.btnHostForward) {
+      this.btnHostForward.addEventListener('click', () => {
+        window.playerManager.hostSkip(10);
+      });
+    }
 
-    this.timeProgressSlider.addEventListener('change', (e) => {
-      if (!window.socketManager.isHost) return;
-      const targetTime = parseFloat(e.target.value);
-      window.playerManager.hostSeekTo(targetTime);
-    });
+    if (this.timeProgressSlider) {
+      this.timeProgressSlider.addEventListener('change', (e) => {
+        if (!window.socketManager.isHost) return;
+        const targetTime = parseFloat(e.target.value);
+        window.playerManager.hostSeekTo(targetTime);
+      });
+    }
 
     // Copiar Código de Sala
     if (this.btnCopyInvite) {
