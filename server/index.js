@@ -238,18 +238,17 @@ app.get('/api/pixeldrain-stream/:fileId', async (req, res) => {
   if (!fileId) return res.status(400).json({ error: 'File ID required' });
 
   const targetUrl = `https://pixeldrain.com/api/file/${fileId}`;
-  const reqHeaders = { 'User-Agent': 'Mozilla/5.0' };
+  const reqHeaders = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' };
   if (req.headers.range) reqHeaders['Range'] = req.headers.range;
 
-  console.log(`[Pixeldrain Stream] fileId=${fileId} ${req.headers.range || 'no range'}`);
+  console.log(`[Pixeldrain Stream] fileId=${fileId} range=${req.headers.range || 'no range'}`);
 
   try {
     const pxRes = await makeHttpsRequest(targetUrl, reqHeaders);
     const status = pxRes.statusCode;
-    const ct = pxRes.headers['content-type'] || 'video/mp4';
 
     const resHeaders = {
-      'Content-Type': ct,
+      'Content-Type': 'video/mp4', // Forzar siempre video/mp4 para reproductor HTML5
       'Accept-Ranges': 'bytes',
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'no-cache'
@@ -479,11 +478,11 @@ app.post('/api/resolve-media', async (req, res) => {
       return res.json({ type: 'youtube', url: cleanUrl, videoId: videoId });
     }
 
-    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.) - 100% Directo del cliente (0% servidor)
+    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.) - Streaming proxy infalible
     if (cleanUrl.includes('pixeldrain.com')) {
       const pxMatch = cleanUrl.match(/pixeldrain\.com\/(?:u|api\/file|l)\/([a-zA-Z0-9_-]+)/i);
       if (pxMatch && pxMatch[1]) {
-        return res.json({ type: 'mp4', url: `https://pixeldrain.com/api/file/${pxMatch[1]}` });
+        return res.json({ type: 'mp4', url: `/api/pixeldrain-stream/${pxMatch[1]}` });
       }
     }
 
