@@ -12,15 +12,30 @@ class SocketManager {
   }
 
   init() {
-    if (this.socket && this.socket.connected) return;
-
     let serverUrl = window.location.origin;
-    if (!serverUrl || serverUrl.startsWith('file:') || serverUrl.startsWith('capacitor:') || serverUrl === 'null') {
+
+    // Detectar si estamos en APK Android (Capacitor), archivo local file:// o app nativa
+    const isCapacitor = !!window.Capacitor ||
+                        !serverUrl ||
+                        serverUrl.startsWith('file:') ||
+                        serverUrl.startsWith('capacitor:') ||
+                        serverUrl === 'null' ||
+                        (serverUrl.includes('localhost') && typeof navigator !== 'undefined' && navigator.userAgent && (navigator.userAgent.includes('Android') || navigator.userAgent.includes('Mobile')));
+
+    if (isCapacitor) {
       serverUrl = 'https://duoplayx.onrender.com';
     }
 
     if (typeof io === 'undefined') {
       console.warn('⚠️ Librería socket.io client no detectada todavía.');
+      return;
+    }
+
+    if (this.socket) {
+      if (this.socket.connected) return;
+      try {
+        this.socket.connect();
+      } catch (e) {}
       return;
     }
 
@@ -31,7 +46,7 @@ class SocketManager {
         reconnection: true,
         reconnectionAttempts: 30,
         reconnectionDelay: 1000,
-        timeout: 10000
+        timeout: 15000
       });
     } catch (e) {
       console.error('Error al instanciar io():', e);
@@ -137,63 +152,81 @@ class SocketManager {
 
   createRoom(username, avatar) {
     this.leaveCurrentRoom();
+    if (!this.socket || !this.socket.connected) this.init();
+
     return new Promise((resolve, reject) => {
-      if (!this.socket || !this.socket.connected) {
-        if (window.appUI) window.appUI.showToast('Conectando al servidor... Reintentando en un momento.', 'info');
-
-        const timer = setTimeout(() => {
-          reject('No se pudo conectar al servidor. Verifica tu conexión a internet.');
-        }, 10000);
-
-        this.socket.once('connect', () => {
-          clearTimeout(timer);
-          this.createRoom(username, avatar).then(resolve).catch(reject);
-        });
-        return;
+      if (!this.socket) {
+        return reject('No se pudo establecer conexión con el servidor.');
       }
 
-      this.socket.emit('create_room', { username, avatar }, (response) => {
-        if (response && response.success) {
-          this.currentRoomId = response.room.roomId;
-          this.currentUser = response.room.user;
-          this.isHost = true;
-          this.joinVoiceRoom();
-          resolve(response.room);
-        } else {
-          reject(response ? response.error : 'Error al crear sala.');
-        }
-      });
+      const emitTimeout = setTimeout(() => {
+        reject('El servidor tardó en responder. Por favor reintenta.');
+      }, 15000);
+
+      const doEmit = () => {
+        this.socket.emit('create_room', { username, avatar }, (response) => {
+          clearTimeout(emitTimeout);
+          if (response && response.success) {
+            this.currentRoomId = response.room.roomId;
+            this.currentUser = response.room.user;
+            this.isHost = true;
+            this.joinVoiceRoom();
+            resolve(response.room);
+          } else {
+            reject(response ? response.error : 'Error al crear la sala.');
+          }
+        });
+      };
+
+      if (this.socket.connected) {
+        doEmit();
+      } else {
+        if (window.appUI) window.appUI.showToast('Conectando al servidor...', 'info');
+        this.socket.once('connect', () => {
+          doEmit();
+        });
+        this.socket.connect();
+      }
     });
   }
 
   joinRoom(roomId, username, avatar) {
     this.leaveCurrentRoom();
+    if (!this.socket || !this.socket.connected) this.init();
+
     return new Promise((resolve, reject) => {
-      if (!this.socket || !this.socket.connected) {
-        if (window.appUI) window.appUI.showToast('Conectando al servidor... Reintentando en un momento.', 'info');
-
-        const timer = setTimeout(() => {
-          reject('No se pudo conectar al servidor. Verifica tu conexión a internet.');
-        }, 10000);
-
-        this.socket.once('connect', () => {
-          clearTimeout(timer);
-          this.joinRoom(roomId, username, avatar).then(resolve).catch(reject);
-        });
-        return;
+      if (!this.socket) {
+        return reject('No se pudo establecer conexión con el servidor.');
       }
 
-      this.socket.emit('join_room', { roomId, username, avatar }, (response) => {
-        if (response && response.success) {
-          this.currentRoomId = response.room.roomId;
-          this.currentUser = response.room.user;
-          this.isHost = response.room.user.isHost;
-          this.joinVoiceRoom();
-          resolve(response.room);
-        } else {
-          reject(response ? response.error : 'No se pudo unirse a la sala.');
-        }
-      });
+      const emitTimeout = setTimeout(() => {
+        reject('El servidor tardó en responder. Por favor reintenta.');
+      }, 15000);
+
+      const doEmit = () => {
+        this.socket.emit('join_room', { roomId, username, avatar }, (response) => {
+          clearTimeout(emitTimeout);
+          if (response && response.success) {
+            this.currentRoomId = response.room.roomId;
+            this.currentUser = response.room.user;
+            this.isHost = response.room.user.isHost;
+            this.joinVoiceRoom();
+            resolve(response.room);
+          } else {
+            reject(response ? response.error : 'No se pudo unirse a la sala.');
+          }
+        });
+      };
+
+      if (this.socket.connected) {
+        doEmit();
+      } else {
+        if (window.appUI) window.appUI.showToast('Conectando al servidor...', 'info');
+        this.socket.once('connect', () => {
+          doEmit();
+        });
+        this.socket.connect();
+      }
     });
   }
 
