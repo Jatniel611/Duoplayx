@@ -48,13 +48,6 @@
           <span>✨ Crear / Cambiar Sala</span>
         </button>
       </div>
-
-      <div class="header-user-profile">
-        <button class="btn-profile" id="btnEditProfile">
-          <span class="user-avatar" id="headerUserAvatar">⚡</span>
-          <span class="user-name hide-mobile" id="headerUserName">Invitado</span>
-        </button>
-      </div>
     </header>
 
     <!-- LANDING / ROOM CREATION MODAL -->
@@ -255,60 +248,10 @@
         </div>
       </section>
 
-      <!-- SECCIÓN / PANEL 2: INFORMACIÓN, SYNC, REACCIONES Y PARTICIPANTES -->
+      <!-- SECCIÓN / PANEL 2: PARTICIPANTES Y AVISOS -->
       <section class="center-info-panel" id="centerInfoPanel">
         
-        <!-- CARD DE ESTADO DE SYNC (ESTILO RAVE BLUEPRINT) -->
-        <div class="sync-status-card glass-card">
-          <div class="sync-status-info">
-            <span class="sync-icon-spin">🔄</span>
-            <div>
-              <strong>Sync activado</strong>
-              <div class="sync-subtext">El host controla la reproducción para todos.</div>
-            </div>
-          </div>
-          <button class="btn btn-sm btn-outline-fuchsia" id="btnDisableSync">Desactivar Sync</button>
-        </div>
-
-        <!-- CARD DE REACCIONES DE PELÍCULA (ESTILO RAVE BLUEPRINT) -->
-        <div class="movie-reactions-card glass-card">
-          <div class="card-title">Reacciones</div>
-          <div class="reactions-chips-grid">
-            <button class="reaction-chip-btn" data-emoji="❤️">
-              <span class="chip-emoji">❤️</span>
-              <span class="chip-count">128</span>
-            </button>
-            <button class="reaction-chip-btn" data-emoji="🔥">
-              <span class="chip-emoji">🔥</span>
-              <span class="chip-count">76</span>
-            </button>
-            <button class="reaction-chip-btn" data-emoji="😂">
-              <span class="chip-emoji">😂</span>
-              <span class="chip-count">89</span>
-            </button>
-            <button class="reaction-chip-btn" data-emoji="🎉">
-              <span class="chip-emoji">🎉</span>
-              <span class="chip-count">54</span>
-            </button>
-            <button class="reaction-chip-btn" data-emoji="💯">
-              <span class="chip-emoji">💯</span>
-              <span class="chip-count">32</span>
-            </button>
-            <button class="reaction-chip-btn" data-emoji="😮">
-              <span class="chip-emoji">😮</span>
-              <span class="chip-count">21</span>
-            </button>
-            <button class="reaction-chip-btn" data-emoji="🥺">
-              <span class="chip-emoji">🥺</span>
-              <span class="chip-count">18</span>
-            </button>
-            <button class="reaction-chip-btn add-custom-reaction">
-              <span class="chip-emoji">＋</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- CARD DE PARTICIPANTES EN SALA DE VOZ (ESTILO RAVE BLUEPRINT) -->
+        <!-- CARD DE PARTICIPANTES EN SALA DE VOZ -->
         <div class="participants-card glass-card">
           <div class="card-title">Participantes (<span id="userCountInline">0</span>)</div>
           <div class="participants-avatars-row" id="voiceMembersGrid">
@@ -327,11 +270,10 @@
 
       </section>
 
-      <!-- SECCIÓN / PANEL 3: CHAT Y GIFS (ESTILO RAVE BLUEPRINT) -->
+      <!-- SECCIÓN / PANEL 3: CHAT -->
       <section class="sidebar-section glass-card" id="sectionSidebar">
         <div class="sidebar-tabs">
-          <button class="tab-btn active" data-tab="tabChat">Chat</button>
-          <button class="tab-btn" data-tab="tabGifs">GIFs</button>
+          <button class="tab-btn active" data-tab="tabChat">💬 Chat en Vivo</button>
         </div>
 
         <!-- MENSAJE FIJADO (ESTILO RAVE BLUEPRINT) -->
@@ -379,19 +321,14 @@
 
     </main>
 
-    <!-- MOBILE BOTTOM NAVIGATION (ESTILO RAVE BLUEPRINT) -->
-    <nav class="mobile-nav-bar" id="mobileNavBar" style="display: none;">
-      <button class="mobile-nav-btn active" id="btnNavPlayer">
-        <span class="nav-icon">🏠</span>
-        <span class="nav-label">Sala</span>
-      </button>
-      
-      <button class="mobile-nav-btn" id="btnNavChat">
+    <!-- BOTTOM NAVIGATION DOCK (SIEMPRE VISIBLE EN PORTRAIT Y LANDSCAPE) -->
+    <nav class="mobile-nav-bar" id="mobileNavBar">
+      <button class="mobile-nav-btn active" id="btnNavChat">
         <span class="nav-icon">💬</span>
         <span class="nav-label">Chat</span>
       </button>
 
-      <!-- BOTÓN PRINCIPAL DE MICRÓFONO AL CENTRO CON GLOW PURPURA/NEÓN (ESTILO RAVE) -->
+      <!-- BOTÓN PRINCIPAL DE MICRÓFONO AL CENTRO CON GLOW PURPURA/NEÓN -->
       <button class="mobile-nav-mic-btn" id="btnNavMainMic" title="Encender / Apagar Micrófono">
         <div class="mic-glow-circle" id="micGlowCircle">
           <span class="mic-icon" id="mainMicDockIcon">🎙️</span>
@@ -402,11 +339,6 @@
       <button class="mobile-nav-btn" id="btnNavUsers">
         <span class="nav-icon">👥</span>
         <span class="nav-label">Amigos</span>
-      </button>
-
-      <button class="mobile-nav-btn" id="btnNavProfile">
-        <span class="nav-icon">👤</span>
-        <span class="nav-label">Perfil</span>
       </button>
     </nav>
 

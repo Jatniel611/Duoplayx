@@ -105,13 +105,13 @@ class RoomManager {
   }
 
   getRoom(roomId) {
-    if (!roomId) return null;
-    return this.rooms.get(roomId.toUpperCase());
+    if (!roomId || typeof roomId !== 'string') return null;
+    return this.rooms.get(roomId.trim().toUpperCase());
   }
 
   addUserToRoom(roomId, socketId, userData) {
     const room = this.getRoom(roomId);
-    if (!room) return { error: 'La sala no existe' };
+    if (!room) return { error: 'La sala especificada no existe.' };
 
     if (room.bannedSockets.has(socketId)) {
       return { error: 'Has sido expulsado/baneado de esta sala.' };

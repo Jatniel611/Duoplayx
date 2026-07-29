@@ -575,17 +575,23 @@ io.on('connection', (socket) => {
 
   socket.on('join_room', (data, callback) => {
     try {
-      const { roomId, username, avatar } = data;
-      const room = roomManager.getRoom(roomId);
+      const { roomId, username, avatar } = data || {};
+      if (!roomId) {
+        if (typeof callback === 'function') return callback({ success: false, error: 'Introduce un código de sala.' });
+        return;
+      }
+
+      const cleanRoomId = String(roomId).trim().toUpperCase();
+      const room = roomManager.getRoom(cleanRoomId);
 
       if (!room) {
         if (typeof callback === 'function') {
-          return callback({ success: false, error: 'La sala especificada no existe.' });
+          return callback({ success: false, error: `La sala '${cleanRoomId}' no existe o expiró.` });
         }
         return;
       }
 
-      const addResult = roomManager.addUserToRoom(roomId, socket.id, { username, avatar });
+      const addResult = roomManager.addUserToRoom(cleanRoomId, socket.id, { username, avatar });
 
       if (addResult.error) {
         if (typeof callback === 'function') {
