@@ -14,7 +14,8 @@
   <link rel="apple-touch-icon" href="icon.png">
   <link rel="stylesheet" href="css/style.css">
 
-  <script src="js/socket.io.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
 </head>
@@ -46,6 +47,11 @@
         <button class="btn btn-primary btn-sm" id="btnOpenSwitchRoomModal" title="Crear o Cambiar de Sala">
           <span>✨ Crear / Cambiar Sala</span>
         </button>
+      </div>
+
+      <div class="user-profile">
+        <span class="user-avatar-badge" id="headerUserAvatar">⚡</span>
+        <span class="user-name" id="headerUserName">Invitado</span>
       </div>
     </header>
 
@@ -88,7 +94,7 @@
             <div class="divider"><span>o únete a una sala</span></div>
 
             <div class="join-box">
-              <input type="text" id="inputRoomCode" class="glass-input uppercase" placeholder="Código de sala" maxlength="6">
+              <input type="text" id="inputRoomCode" class="glass-input uppercase" placeholder="Código de sala (ej: AB12CD)" maxlength="6">
               <button class="btn btn-secondary" id="btnJoinRoom">Unirme</button>
             </div>
           </div>
@@ -96,76 +102,68 @@
       </div>
     </div>
 
-    <!-- MAIN WATCH PARTY SCREEN (STRUCTURE MATCHING RAVE BLUEPRINTS) -->
+    <!-- CONTENEDOR PRINCIPAL DE LA SALA -->
     <main class="main-content" id="mainRoom" style="display: none;">
       
-      <!-- REPRODUCTOR Y CONTROLES DE VIDEO -->
+      <!-- SECCIÓN DEL REPRODUCTOR DE VIDEO -->
       <section class="player-section" id="sectionPlayer">
-        <!-- BARRA FLOTANTE COMPACTA DE VOZ PARA MÓVIL DuoPlayX -->
-        <div class="mobile-voice-strip glass-card" id="mobileVoiceStrip">
-          <div class="mobile-voice-info">
-            <span class="voice-live-dot"></span>
-            <span class="mobile-voice-title">🎙️ Voz (<strong id="mobileVoiceCount">0</strong>)</span>
-            <div class="mobile-voice-avatars" id="mobileVoiceAvatars"></div>
-          </div>
-          <div class="mobile-voice-actions">
-            <button class="btn btn-xs btn-secondary" id="btnMobileToggleMic">
-              <span id="mobileMicIcon">🎙️</span> <span id="mobileMicLabel">Encender Mic</span>
-            </button>
-          </div>
-        </div>
 
-        <!-- BARRA DE CAMBIO DE VIDEO (Solo Host) -->
-        <div class="media-input-bar glass-card" id="hostMediaBar">
-          <div class="input-prefix">👑 CAMBIAR PELÍCULA:</div>
+        <!-- CONTROLES EXCLUSIVOS DEL HOST PARA CAMBIAR PELÍCULA -->
+        <div class="media-input-bar glass-card" id="hostMediaBar" style="display: none;">
+          <span class="input-prefix">👑 CAMBIAR PELÍCULA:</span>
           <input type="text" id="inputMediaUrl" class="glass-input" placeholder="Pega URL de YouTube, Google Drive o enlace directo .mp4...">
           <button class="btn btn-primary" id="btnChangeMedia">Cargar</button>
         </div>
 
+        <!-- REPRODUCTOR ESTILO NETFLIX / RAVE CON OVERLAYS FLOTANTES -->
+        <div class="netflix-stage" id="playerStage">
+          <div class="video-wrapper" id="videoWrapper">
+            <video id="html5Player" playsinline crossorigin="anonymous"></video>
+            <div id="youtubePlayer"></div>
+          </div>
 
-
-        <!-- STAGE DEL REPRODUCTOR -->
-        <div class="player-stage-container glass-card netflix-stage" id="playerStage">
-          <div class="stage-activity-tracker" id="stageActivityTracker"></div>
-          <div class="guest-player-lock-overlay" id="guestPlayerLockOverlay"></div>
-
-          <div class="video-autoplay-overlay" id="videoAutoplayOverlay">
-            <button class="btn btn-primary btn-lg" id="btnUnlockVideoAutoplay">
-              ▶️ Clic para Activar Video & Sincronización
+          <!-- OVERLAY DE DESBLOQUEO DE AUTOPLAY -->
+          <div class="video-autoplay-overlay" id="videoAutoplayOverlay" style="display: none;">
+            <button class="btn btn-lg btn-primary btn-pulse" id="btnUnlockVideoAutoplay">
+              <span>▶ Clic para Activar Video & Sincronización</span>
             </button>
           </div>
 
-          <div class="reaction-overlay" id="reactionOverlay"></div>
+          <!-- BLOQUEO INTERACTIVO DE REPRODUCCIÓN PARA INVITADOS -->
+          <div class="guest-player-lock-overlay" id="guestPlayerLockOverlay"></div>
 
-          <div class="video-loading-overlay" id="videoLoadingOverlay" style="display: none;">
-            <div class="spinner-neon"></div>
-            <span class="loading-text" id="videoLoadingText">Cargando película...</span>
-          </div>
-
+          <!-- BADGE DE ESTADO DE SINCRONIZACIÓN (TOP LEFT) -->
           <div class="sync-status-badge" id="syncStatusBadge">
             <span class="status-indicator synced"></span>
             <span id="syncStatusText">Sincronizado</span>
           </div>
 
-          <button class="stage-fullscreen-btn" id="btnToggleFullscreen" title="Ver en Pantalla Completa">
-            <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" fill="currentColor"/></svg>
-            <span class="hide-mobile">Pantalla Completa</span>
+          <!-- BOTÓN DE PANTALLA COMPLETA FLOTANTE (TOP RIGHT) -->
+          <button class="stage-fullscreen-btn" id="btnToggleFullscreen" title="Pantalla Completa">
+            <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+            <span>Pantalla Completa</span>
           </button>
 
-          <div class="stage-floating-reactions-bar idle-hidden" id="stageFloatingReactionsBar">
-            <button class="stage-reaction-btn" data-emoji="❤️" title="Me encanta">❤️</button>
-            <button class="stage-reaction-btn" data-emoji="🔥" title="¡Fuego!">🔥</button>
-            <button class="stage-reaction-btn" data-emoji="😂" title="Risa">😂</button>
-            <button class="stage-reaction-btn" data-emoji="🎉" title="Fiesta">🎉</button>
-            <button class="stage-reaction-btn" data-emoji="👏" title="Aplausos">👏</button>
-            <button class="stage-reaction-btn" data-emoji="🚀" title="Cohete">🚀</button>
+          <!-- OVERLAY TRANSPARENTE DE REACCIONES FLOTANTES (EMOJIS EN PANTALLA) -->
+          <div class="reaction-overlay" id="reactionOverlay"></div>
+
+          <!-- REACCIONES FLOTANTES SOBRE EL VIDEO (SOLO EN PANTALLA COMPLETA) -->
+          <div class="stage-floating-reactions-bar" id="stageFloatingReactionsBar">
+            <button class="stage-reaction-btn" data-emoji="❤️">❤️</button>
+            <button class="stage-reaction-btn" data-emoji="🔥">🔥</button>
+            <button class="stage-reaction-btn" data-emoji="😂">😂</button>
+            <button class="stage-reaction-btn" data-emoji="🎉">🎉</button>
+            <button class="stage-reaction-btn" data-emoji="👏">👏</button>
+            <button class="stage-reaction-btn" data-emoji="🚀">🚀</button>
           </div>
 
-          <button class="floating-chat-bubble" id="btnFloatingChatBubble" title="Abrir Chat Flotante">
-            <span class="chat-bubble-icon">💬</span>
+          <!-- BURBUJA DE CHAT FLOTANTE SOBRE EL REPRODUCTOR -->
+          <div class="floating-chat-bubble" id="btnFloatingChatBubble" title="Abrir Chat Flotante">
+            <span>💬</span>
             <span class="chat-unread-badge" id="chatUnreadBadge" style="display: none;">0</span>
-          </button>
+          </div>
 
+          <!-- OVERLAY DE CHAT FLOTANTE SOBRE EL VIDEO -->
           <div class="floating-chat-overlay" id="floatingChatOverlay" style="display: none;">
             <div class="floating-chat-header">
               <span>💬 Chat en Vivo</span>
@@ -174,55 +172,45 @@
             <div class="floating-chat-messages" id="floatingChatMessages"></div>
             <form class="floating-chat-input-form" id="floatingChatForm">
               <input type="text" id="inputFloatingChatMessage" class="glass-input" placeholder="Escribe al chat en vivo..." autocomplete="off">
-              <button type="submit" class="btn btn-primary btn-sm">➔</button>
+              <button type="submit" class="btn btn-primary btn-sm btn-icon">➔</button>
             </form>
           </div>
 
-          <div id="youtubePlayerContainer" class="video-wrapper">
-            <div id="ytPlayer"></div>
-          </div>
-          <div id="mp4PlayerContainer" class="video-wrapper" style="display: none;">
-            <video id="html5VideoPlayer" playsinline crossorigin="anonymous"></video>
-          </div>
-          <div id="gdrivePlayerContainer" class="video-wrapper" style="display: none;">
-            <video id="gdriveVideoPlayer" playsinline crossorigin="anonymous"></video>
-          </div>
-          <div class="empty-media-overlay" id="emptyMediaOverlay" style="display: none;">
-            <div class="empty-icon">🍿</div>
-            <h3>Pega una URL de YouTube, Google Drive o MP4 para empezar</h3>
-            <p>El Host tiene el control de la película mientras hablas en la Sala de Voz.</p>
-          </div>
-
-          <!-- BARRA DE CONTROLES Y TIEMPO SOBRE EL VIDEO (ESTILO YOUTUBE QUE DESVANECEN) -->
-          <div class="timeline-controls-bar yt-controls-bar idle-hidden" id="timelineControlsBar">
-            <!-- FILA SUPERIOR: LÍNEA DE TIEMPO / SLIDER COMPLETO -->
-            <div class="yt-timeline-top">
+          <!-- CONTROLES ESTILO YOUTUBE (OVERLAY INFERIOR TÁCTIL) -->
+          <div class="timeline-controls-bar yt-controls-bar" id="timelineControlsBar">
+            
+            <!-- FILA SUPERIOR: SLIDER DE TIEMPO ANCHO COMPLETO -->
+            <div class="yt-progress-container">
               <input type="range" id="timeProgressSlider" class="yt-progress-slider" min="0" max="100" value="0" step="0.1">
             </div>
 
-            <!-- FILA INFERIOR: CONTROLES DE REPRODUCCIÓN, VOLUMEN, TIEMPO Y CALIDAD -->
-            <div class="yt-controls-bottom">
+            <!-- FILA INFERIOR: BOTONES Y CONTROLES -->
+            <div class="yt-controls-row">
               <div class="yt-left-controls">
-                <button class="yt-btn-ctrl" id="btnHostRewind" title="Atrasar 10s">
-                  <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M12.5 3C7.25 3 3 7.25 3 12.5C3 17.75 7.25 22 12.5 22C17.75 22 22 17.75 22 12.5H19.5C19.5 16.37 16.37 19.5 12.5 19.5C8.63 19.5 5.5 16.37 5.5 12.5C5.5 8.63 8.63 5.5 12.5 5.5V9L18 4.25L12.5 0V3Z" fill="currentColor"/></svg>
-                </button>
-                <button class="yt-play-btn" id="btnHostPlayPause" title="Reproducir / Pausar">
-                  <svg id="svgPlayIcon" viewBox="0 0 24 24" class="svg-main-play"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>
-                  <svg id="svgPauseIcon" viewBox="0 0 24 24" class="svg-main-pause" style="display:none;"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></svg>
-                </button>
-                <button class="yt-btn-ctrl" id="btnHostForward" title="Adelantar 10s">
-                  <svg viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M11.5 3C16.75 3 21 7.25 21 12.5C21 17.75 16.75 22 11.5 22C6.25 22 2 17.75 2 12.5H4.5C4.5 16.37 7.63 19.5 11.5 19.5C15.37 19.5 18.5 16.37 18.5 12.5C18.5 8.63 15.37 5.5 11.5 5.5V9L6 4.25L11.5 0V3Z" fill="currentColor"/></svg>
-                </button>
-
-                <!-- VOLUMEN -->
-                <div class="yt-volume-box">
-                  <button class="yt-icon-btn" id="btnToggleVideoMute" title="Silenciar / Activar Sonido">
-                    <svg id="svgVolumeIcon" viewBox="0 0 24 24" class="svg-ctrl-icon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" fill="currentColor"/></svg>
+                <div class="host-controls-group" id="hostBtnsGroup">
+                  <button class="yt-btn-ctrl" id="btnHostRewind" title="Retroceder 10s">
+                    <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
                   </button>
-                  <input type="range" id="inputVideoVolume" class="yt-vol-slider" min="0" max="100" value="100" step="1" title="Volumen">
+
+                  <button class="yt-play-btn" id="btnHostPlayPause" title="Reproducir / Pausar">
+                    <svg class="svg-main-play" id="svgPlayIcon" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+                    <svg class="svg-main-pause" id="svgPauseIcon" viewBox="0 0 24 24" style="display: none;"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                  </button>
+
+                  <button class="yt-btn-ctrl" id="btnHostForward" title="Adelantar 10s">
+                    <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/></svg>
+                  </button>
                 </div>
 
-                <!-- LECTURA DE TIEMPO -->
+                <!-- VOLUMEN LOCAL DE VIDEO -->
+                <div class="yt-vol-group">
+                  <button class="yt-btn-ctrl" id="btnToggleVideoMute" title="Silenciar / Activar Audio">
+                    <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                  </button>
+                  <input type="range" id="inputVideoVolume" class="yt-vol-slider" min="0" max="100" value="100">
+                </div>
+
+                <!-- TIEMPO LECTURA -->
                 <div class="yt-time-display">
                   <span id="timeCurrent">00:00</span> / <span id="timeDuration">00:00</span>
                 </div>
@@ -306,36 +294,41 @@
               </select>
             </div>
 
-            <div class="voice-members-grid" id="voiceMembersGrid">
-              <div class="voice-empty-state">Canal de voz activo. Presiona Encender Micrófono para hablar.</div>
-            </div>
+            <div class="voice-members-grid" id="voiceMembersGrid"></div>
           </div>
 
+          <div class="users-header">
+            <h4>👥 Integrantes (<span id="userCount">0</span>)</h4>
+          </div>
           <div class="users-list" id="usersList"></div>
         </div>
 
       </section>
-
     </main>
 
-    <!-- BOTTOM NAVIGATION DOCK (SIEMPRE VISIBLE EN PORTRAIT Y LANDSCAPE) -->
-    <nav class="mobile-nav-bar" id="mobileNavBar">
-      <button class="mobile-nav-btn active" id="btnNavChat">
+    <!-- BARRA DOCK NAVEGACIÓN GLOBAL DE LA SALA -->
+    <nav class="mobile-nav-bar" id="mobileNavBar" style="display: none;">
+      <button class="nav-item active" id="btnNavChat" data-tab="tabChat">
         <span class="nav-icon">💬</span>
         <span class="nav-label">Chat</span>
       </button>
 
-      <!-- BOTÓN PRINCIPAL DE MICRÓFONO AL CENTRO CON GLOW PURPURA/NEÓN -->
-      <button class="mobile-nav-mic-btn" id="btnNavMainMic" title="Encender / Apagar Micrófono">
+      <!-- BOTÓN UNIFICADO DE MICRÓFONO EN BARRA DOCK -->
+      <button class="nav-item mic-dock-btn" id="btnNavMainMic">
         <div class="mic-glow-circle" id="micGlowCircle">
-          <span class="mic-icon" id="mainMicDockIcon">🎙️</span>
+          <span class="nav-icon" id="mainMicDockIcon">🎙️</span>
         </div>
-        <span class="nav-label-mic" id="mainMicDockLabel">Hablar</span>
+        <span class="nav-label" id="mainMicDockLabel">Voz</span>
       </button>
 
-      <button class="mobile-nav-btn" id="btnNavUsers">
+      <button class="nav-item" id="btnNavUsers" data-tab="tabUsers">
         <span class="nav-icon">👥</span>
         <span class="nav-label">Amigos</span>
+      </button>
+
+      <button class="nav-item" id="btnNavProfile">
+        <span class="nav-icon">✨</span>
+        <span class="nav-label">Salas</span>
       </button>
     </nav>
 
@@ -368,9 +361,9 @@
 
   </div>
 
-  <script src="js/webrtc.js?v=1.0.6"></script>
-  <script src="js/player.js?v=1.0.6"></script>
-  <script src="js/socket.js?v=1.0.6"></script>
-  <script src="js/app.js?v=1.0.6"></script>
+  <script src="js/webrtc.js?v=1.0.8"></script>
+  <script src="js/player.js?v=1.0.8"></script>
+  <script src="js/socket.js?v=1.0.8"></script>
+  <script src="js/app.js?v=1.0.8"></script>
 </body>
 </html>

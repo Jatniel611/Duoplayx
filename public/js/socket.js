@@ -8,34 +8,16 @@ class SocketManager {
     this.currentRoomId = null;
     this.currentUser = null;
     this.isHost = false;
-    setTimeout(() => this.init(), 50);
-  }
-
-  getServerUrl() {
-    if (window.DUOPLAYX_SERVER_URL) return window.DUOPLAYX_SERVER_URL;
-
-    const origin = window.location.origin || '';
-    const isCapacitor = !!window.Capacitor || origin.startsWith('capacitor:');
-    const isFileProtocol = !origin || origin.startsWith('file:') || origin === 'null';
-
-    // 1. Si es App de Android (Capacitor), conectar al servidor Cloud de Render
-    if (isCapacitor) {
-      return 'https://duoplayx.onrender.com';
-    }
-
-    // 2. Si se ejecuta desde archivo local sin servidor web (ej. HTML suelto o ejecutable local sin origin)
-    if (isFileProtocol) {
-      return 'http://localhost:3000';
-    }
-
-    // 3. Navegador Web (Render o Servidor Local http://localhost:3000)
-    return origin;
+    this.init();
   }
 
   init() {
     if (this.socket && this.socket.connected) return;
 
-    const serverUrl = this.getServerUrl();
+    let serverUrl = window.location.origin;
+    if (!serverUrl || serverUrl.startsWith('file:') || serverUrl.startsWith('capacitor:') || serverUrl === 'null') {
+      serverUrl = 'https://duoplayx.onrender.com';
+    }
 
     if (typeof io === 'undefined') {
       console.warn('⚠️ Librería socket.io client no detectada todavía.');
@@ -44,17 +26,13 @@ class SocketManager {
 
     console.log(`🔌 Conectando Socket.io a: ${serverUrl}`);
     try {
-      if (!this.socket) {
-        this.socket = io(serverUrl, {
-          transports: ['websocket', 'polling'],
-          reconnection: true,
-          reconnectionAttempts: 30,
-          reconnectionDelay: 1000,
-          timeout: 12000
-        });
-      } else if (!this.socket.connected) {
-        this.socket.connect();
-      }
+      this.socket = io(serverUrl, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 30,
+        reconnectionDelay: 1000,
+        timeout: 10000
+      });
     } catch (e) {
       console.error('Error al instanciar io():', e);
       return;
@@ -139,10 +117,6 @@ class SocketManager {
     this.socket.on('chat_message_reaction_updated', (data) => {
       window.appUI.updateChatMessageReactions(data.msgId, data.reactions);
     });
-
-    this.socket.on('error_message', (data) => {
-      window.appUI.showToast(data.message, 'danger');
-    });
   }
 
   leaveCurrentRoom() {
@@ -163,71 +137,63 @@ class SocketManager {
 
   createRoom(username, avatar) {
     this.leaveCurrentRoom();
-    if (!this.socket || !this.socket.connected) this.init();
-
     return new Promise((resolve, reject) => {
-      const doEmit = () => {
-        this.socket.emit('create_room', { username, avatar }, (response) => {
-          if (response && response.success) {
-            this.currentRoomId = response.room.roomId;
-            this.currentUser = response.room.user;
-            this.isHost = true;
-            this.joinVoiceRoom();
-            resolve(response.room);
-          } else {
-            reject(response ? response.error : 'Error al crear sala.');
-          }
-        });
-      };
+      if (!this.socket || !this.socket.connected) {
+        if (window.appUI) window.appUI.showToast('Conectando al servidor... Reintentando en un momento.', 'info');
 
-      if (this.socket && this.socket.connected) {
-        doEmit();
-      } else {
-        if (window.appUI) window.appUI.showToast('Conectando al servidor... En un momento se creará la sala.', 'info');
         const timer = setTimeout(() => {
-          reject('No se pudo conectar al servidor WebSocket. Reintenta.');
-        }, 12000);
+          reject('No se pudo conectar al servidor. Verifica tu conexión a internet.');
+        }, 10000);
 
         this.socket.once('connect', () => {
           clearTimeout(timer);
-          doEmit();
+          this.createRoom(username, avatar).then(resolve).catch(reject);
         });
+        return;
       }
+
+      this.socket.emit('create_room', { username, avatar }, (response) => {
+        if (response && response.success) {
+          this.currentRoomId = response.room.roomId;
+          this.currentUser = response.room.user;
+          this.isHost = true;
+          this.joinVoiceRoom();
+          resolve(response.room);
+        } else {
+          reject(response ? response.error : 'Error al crear sala.');
+        }
+      });
     });
   }
 
   joinRoom(roomId, username, avatar) {
     this.leaveCurrentRoom();
-    if (!this.socket || !this.socket.connected) this.init();
-
     return new Promise((resolve, reject) => {
-      const doEmit = () => {
-        this.socket.emit('join_room', { roomId, username, avatar }, (response) => {
-          if (response && response.success) {
-            this.currentRoomId = response.room.roomId;
-            this.currentUser = response.room.user;
-            this.isHost = response.room.user.isHost;
-            this.joinVoiceRoom();
-            resolve(response.room);
-          } else {
-            reject(response ? response.error : 'No se pudo unirse a la sala.');
-          }
-        });
-      };
+      if (!this.socket || !this.socket.connected) {
+        if (window.appUI) window.appUI.showToast('Conectando al servidor... Reintentando en un momento.', 'info');
 
-      if (this.socket && this.socket.connected) {
-        doEmit();
-      } else {
-        if (window.appUI) window.appUI.showToast('Conectando al servidor... En un momento te unirás a la sala.', 'info');
         const timer = setTimeout(() => {
-          reject('No se pudo conectar al servidor WebSocket. Reintenta.');
-        }, 12000);
+          reject('No se pudo conectar al servidor. Verifica tu conexión a internet.');
+        }, 10000);
 
         this.socket.once('connect', () => {
           clearTimeout(timer);
-          doEmit();
+          this.joinRoom(roomId, username, avatar).then(resolve).catch(reject);
         });
+        return;
       }
+
+      this.socket.emit('join_room', { roomId, username, avatar }, (response) => {
+        if (response && response.success) {
+          this.currentRoomId = response.room.roomId;
+          this.currentUser = response.room.user;
+          this.isHost = response.room.user.isHost;
+          this.joinVoiceRoom();
+          resolve(response.room);
+        } else {
+          reject(response ? response.error : 'No se pudo unirse a la sala.');
+        }
+      });
     });
   }
 
