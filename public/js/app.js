@@ -1524,8 +1524,65 @@ class AppUI {
     }
   }
 
+  toggleFloatingChatOverlay(forceShow = null) {
+    if (!this.floatingChatOverlay) return;
+    const isVisible = forceShow !== null ? forceShow : (this.floatingChatOverlay.style.display === 'none' || !this.floatingChatOverlay.style.display);
+    if (isVisible) {
+      this.floatingChatOverlay.style.display = 'flex';
+      document.body.classList.add('floating-chat-open');
+      this.unreadChatCount = 0;
+      if (this.chatUnreadBadge) this.chatUnreadBadge.style.display = 'none';
+      if (this.inputFloatingChatMessage) this.inputFloatingChatMessage.focus();
+    } else {
+      this.floatingChatOverlay.style.display = 'none';
+      document.body.classList.remove('floating-chat-open');
+    }
+  }
+
+  handleBackAction() {
+    const stage = this.playerStage || document.getElementById('playerStage');
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement) || (stage && stage.classList.contains('fullscreen-active')) || document.body.classList.contains('fullscreen-active');
+    if (isFS) {
+      this.exitFullscreen();
+      return true;
+    }
+
+    if (this.emojiPickerPopover && this.emojiPickerPopover.style.display !== 'none' && this.emojiPickerPopover.style.display !== '') {
+      this.emojiPickerPopover.style.display = 'none';
+      return true;
+    }
+    if (this.gifPickerPopover && this.gifPickerPopover.style.display !== 'none' && this.gifPickerPopover.style.display !== '') {
+      this.gifPickerPopover.style.display = 'none';
+      return true;
+    }
+    if (this.floatingChatOverlay && this.floatingChatOverlay.style.display !== 'none' && this.floatingChatOverlay.style.display !== '') {
+      this.toggleFloatingChatOverlay(false);
+      return true;
+    }
+    if (this.modalSwitchRoom && this.modalSwitchRoom.style.display !== 'none' && this.modalSwitchRoom.style.display !== '') {
+      this.modalSwitchRoom.style.display = 'none';
+      return true;
+    }
+
+    if (document.body.classList.contains('in-room')) {
+      if (!this._backPressCount) this._backPressCount = 0;
+      this._backPressCount++;
+      if (this._backPressCount === 1) {
+        this.showToast('👈 Presiona Atrás de nuevo si deseas salir de la sala', 'info');
+        clearTimeout(this._backPressTimer);
+        this._backPressTimer = setTimeout(() => { this._backPressCount = 0; }, 2500);
+      } else if (this._backPressCount >= 2) {
+        clearTimeout(this._backPressTimer);
+        this._backPressCount = 0;
+        this.leaveRoom();
+      }
+      return true;
+    }
+    return false;
+  }
+
   formatTime(seconds) {
-    if (!seconds || isNaN(seconds) || seconds < 0) return '00m 00s';
+    if (!seconds || !isFinite(seconds) || isNaN(seconds) || seconds < 0 || seconds > 86400 * 2) return '00:00';
     const totalSecs = Math.floor(seconds);
     const hrs = Math.floor(totalSecs / 3600);
     const mins = Math.floor((totalSecs % 3600) / 60);
@@ -1535,9 +1592,10 @@ class AppUI {
     const padMins = mins < 10 ? `0${mins}` : `${mins}`;
 
     if (hrs > 0) {
-      return `${hrs}h ${padMins}m ${padSecs}s`;
+      const padHrs = hrs < 10 ? `0${hrs}` : `${hrs}`;
+      return `${padHrs}:${padMins}:${padSecs}`;
     } else {
-      return `${padMins}m ${padSecs}s`;
+      return `${padMins}:${padSecs}`;
     }
   }
 
@@ -1598,4 +1656,9 @@ class AppUI {
 
 document.addEventListener('DOMContentLoaded', () => {
   window.appUI = new AppUI();
+  window.handleAndroidNativeBack = () => {
+    if (window.appUI && typeof window.appUI.handleBackAction === 'function') {
+      window.appUI.handleBackAction();
+    }
+  };
 });
