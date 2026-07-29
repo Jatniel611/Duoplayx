@@ -2298,39 +2298,41 @@ body.in-room .mobile-nav-bar {
   padding: 6px !important;
 }
 
-/* ─── CARRUSEL DE MENSAJES ESTILO RAVE / TV NEWS MARQUEE PARA PANTALLA COMPLETA ─── */
+/* ─── CARRUSEL DE MENSAJES EN MISMA LÍNEA ESTILO RAVE / MARQUEE EN PANTALLA COMPLETA ─── */
 .fullscreen-chat-ticker-container {
   position: absolute;
   bottom: 64px;
   left: 0;
   width: 100%;
+  height: 42px;
   pointer-events: none;
   z-index: 115;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   overflow: hidden;
   box-sizing: border-box;
 }
 
 .chat-ticker-item {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(10, 6, 24, 0.78);
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  border: 1px solid rgba(255, 0, 127, 0.45);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65), 0 0 12px rgba(255, 0, 127, 0.35);
+  background: rgba(8, 4, 20, 0.38);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  border: 1px solid rgba(255, 0, 127, 0.28);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 10px rgba(255, 0, 127, 0.2);
   border-radius: 20px;
-  padding: 6px 16px;
+  padding: 5px 16px;
   color: #ffffff;
   font-size: 0.88rem;
   font-weight: 600;
   white-space: nowrap;
   width: fit-content;
+  max-width: 90vw;
   will-change: transform;
-  animation: raveScrollingNews 16s linear forwards;
+  animation: raveSingleLineMarquee 16s linear forwards;
   pointer-events: auto;
 }
 
@@ -2346,15 +2348,17 @@ body.in-room .mobile-nav-bar {
 
 .chat-ticker-item .ticker-text {
   color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-@keyframes raveScrollingNews {
+@keyframes raveSingleLineMarquee {
   0% {
     transform: translateX(100vw);
     opacity: 1;
   }
   100% {
-    transform: translateX(-100%);
+    transform: translateX(calc(-100vw - 100%));
     opacity: 1;
   }
 }
