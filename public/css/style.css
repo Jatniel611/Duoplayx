@@ -1073,8 +1073,261 @@ body.in-room .mobile-nav-bar {
   .mobile-voice-strip { display: none !important; }
 }
 
-/* ─── OPTIMIZACIÓN RESPONSIVE DEFINITIVA PARA MÓVILES, ANDROID 720P Y PANTALLAS COMPACTAS ─── */
-@media (max-width: 1024px), (max-height: 768px) {
+
+/* ════════════════════════════════════════════════════════════════
+   DESKTOP / PC — > 768px  (Pantallas Grandes)
+   El nav dock de abajo NO aparece en desktop
+   ════════════════════════════════════════════════════════════════ */
+@media (min-width: 769px) {
+  /* En desktop la barra dock NUNCA se muestra */
+  .mobile-nav-bar { display: none !important; }
+
+  .main-content {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+    margin-bottom: 0;
+  }
+
+  .player-section { display: flex; flex-direction: column; min-height: 0; }
+  .sidebar-section { display: flex; flex-direction: column; min-height: 0; }
+
+  /* Controles del reproductor en desktop — más cómodos */
+  .yt-btn-ctrl { padding: 6px 10px; }
+  .yt-play-btn { width: 44px; height: 44px; }
+  .svg-ctrl-icon { width: 20px; height: 20px; }
+  .svg-main-play, .svg-main-pause { width: 22px; height: 22px; }
+  .yt-time-display { font-size: 0.85rem; }
+  .yt-vol-slider { width: 75px; }
+  .timeline-controls-bar { padding: 10px 16px 12px; }
+
+  /* Sidebar tabs en desktop — más bonitos */
+  .sidebar-tabs {
+    display: flex;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .tab-btn { padding: 14px 8px; font-size: 0.88rem; }
+  .tab-btn.active {
+    background: rgba(255, 0, 127, 0.1);
+    border-bottom-color: var(--accent-fuchsia);
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 1200px) {
+  .main-content { grid-template-columns: 1fr 400px; gap: 18px; }
+}
+
+@media (min-width: 1600px) {
+  .main-content { grid-template-columns: 1fr 440px; gap: 22px; }
+  .brand-name { font-size: 1.8rem; }
+  .btn-sm { padding: 10px 20px; font-size: 0.92rem; }
+  .app-header { padding: 16px 32px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MÓVIL / ANDROID — ≤ 768px
+   La barra dock aparece aquí, el layout cambia a columna
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  html, body { height: 100dvh; height: 100vh; overflow-x: hidden; width: 100vw; }
+
+  .app-container {
+    padding: 4px;
+    height: 100dvh;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+
+  /* Header compacto en móvil */
+  .app-header {
+    padding: 5px 8px;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+    min-height: 40px;
+  }
+  .logo-icon-img { width: 24px; height: 24px; }
+  .brand-name { font-size: 0.85rem; font-weight: 800; }
+  .brand-sub { display: none !important; }
+  .hide-mobile { display: none !important; }
+  .room-badge { padding: 3px 7px; font-size: 0.72rem; gap: 4px; }
+  #headerUserName { display: none !important; }
+  #btnCopyInvite { padding: 4px 8px; font-size: 0.75rem; }
+  #btnOpenSwitchRoomModal { padding: 4px 8px; font-size: 0.75rem; }
+
+  /* Layout en columna */
+  .main-content, #mainRoom {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    gap: 4px;
+    margin-bottom: 58px; /* espacio para la barra dock */
+  }
+
+  .player-section, #sectionPlayer {
+    width: 100% !important;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .media-input-bar { flex-wrap: wrap; gap: 4px; padding: 6px 8px; }
+  .media-input-bar .glass-input { min-width: 0; flex: 1; font-size: 0.8rem; padding: 6px 10px; }
+
+  .netflix-stage { min-height: 180px; max-height: 38vh; }
+
+  /* Controles del reproductor compactos en móvil */
+  .timeline-controls-bar { padding: 5px 8px 7px !important; gap: 4px !important; }
+  .yt-progress-slider { height: 6px !important; }
+  .yt-btn-ctrl { padding: 4px 7px !important; }
+  .yt-play-btn { width: 34px !important; height: 34px !important; }
+  .svg-ctrl-icon { width: 16px; height: 16px; }
+  .svg-main-play, .svg-main-pause { width: 18px; height: 18px; }
+  .yt-vol-slider { width: 46px !important; }
+  .yt-time-display { font-size: 0.68rem !important; padding: 2px 5px !important; }
+  .host-controls-group { gap: 3px !important; }
+  .quality-select-dropdown { font-size: 0.7rem !important; }
+  #btnResync { padding: 4px 8px !important; font-size: 0.72rem !important; }
+
+  /* Barra dock visible en móvil */
+  body.in-room .mobile-nav-bar { display: flex !important; }
+
+  /* Sidebar visible como segunda sección */
+  .sidebar-section {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    display: none;
+    flex-direction: column;
+    padding: 6px;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .voice-room-panel { max-height: 130px; overflow-y: auto; }
+  .tab-btn { padding: 9px 4px; font-size: 0.8rem; }
+  .tab-content { padding: 6px 4px 4px; }
+  .chat-messages { margin-bottom: 6px; }
+  .chat-input-form .glass-input { font-size: 0.82rem; padding: 7px 10px; }
+
+  .toast-container { bottom: 65px; right: 8px; left: 8px; }
+  .toast { padding: 8px 12px; font-size: 0.82rem; }
+
+  .gif-picker-popover, .emoji-picker-popover {
+    position: fixed; bottom: 62px; left: 6px; right: 6px; width: auto; height: 240px; z-index: 1100;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     BARRA DOCK INFERIOR PREMIUM — SOLO EN MÓVIL
+     ═══════════════════════════════════════════════════════ */
+  .mobile-nav-bar {
+    display: none; /* se activa con in-room */
+    align-items: center;
+    justify-content: space-around;
+    background: linear-gradient(180deg, rgba(6,4,14,0.0) 0%, rgba(5,3,12,0.97) 100%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border-top: 1px solid rgba(255, 0, 127, 0.28);
+    padding: 4px 6px 6px;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    z-index: 1000 !important;
+    height: 58px !important;
+    box-sizing: border-box;
+    gap: 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    color: rgba(180,170,210,0.85);
+    font-size: 0.58rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    flex: 1;
+    padding: 5px 4px;
+    transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
+    min-width: 0;
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
+  }
+  .nav-item .nav-icon { font-size: 1.05rem; line-height: 1; }
+  .nav-item.active {
+    background: rgba(255, 0, 127, 0.2);
+    border-color: rgba(255, 0, 127, 0.6);
+    color: #ff69b4;
+    box-shadow: 0 0 10px rgba(255, 0, 127, 0.4);
+  }
+  .nav-item:active { transform: scale(0.92); }
+
+  /* Botón central de MIC — elevado y brillante */
+  .mic-dock-btn {
+    flex: 1.4;
+    background: linear-gradient(135deg, #ff007f 0%, #d946ef 55%, #8b5cf6 100%) !important;
+    border: 2px solid rgba(255,255,255,0.35) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 0 22px rgba(255,0,127,0.75), 0 4px 16px rgba(0,0,0,0.5) !important;
+    color: #fff !important;
+    padding: 5px 6px !important;
+    position: relative;
+    top: -8px;
+    height: 52px !important;
+    min-height: 52px;
+  }
+  .mic-dock-btn .nav-icon { font-size: 1.25rem !important; }
+  .mic-dock-btn .nav-label { font-size: 0.6rem !important; color: #fff !important; letter-spacing: 0.5px; }
+  .mic-dock-btn:active {
+    transform: scale(0.9) translateY(2px) !important;
+    box-shadow: 0 0 32px rgba(255,0,127,1), 0 2px 8px rgba(0,0,0,0.7) !important;
+  }
+
+  .mic-glow-circle {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent-gradient);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 18px rgba(255, 0, 127, 0.9);
+    border: 2px solid rgba(255,255,255,0.4);
+    transition: all 0.25s ease;
+  }
+  .mic-glow-circle.mic-active {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    box-shadow: 0 0 22px rgba(16, 185, 129, 1) !important;
+  }
+}
+
+/* Pantallas muy pequeñas < 380px */
+@media (max-width: 380px) {
+  .mobile-nav-bar { height: 52px !important; padding: 2px 4px 4px !important; gap: 2px !important; }
+  .nav-item { font-size: 0.5rem !important; padding: 3px 2px !important; border-radius: 10px !important; }
+  .nav-item .nav-icon { font-size: 0.92rem !important; }
+  .mic-dock-btn { height: 46px !important; min-height: 46px !important; top: -6px !important; }
+  .mic-dock-btn .nav-icon { font-size: 1.1rem !important; }
+  .brand-name { font-size: 0.78rem !important; }
+  .yt-vol-slider { display: none !important; }
+  #btnResync { display: none !important; }
+}
+
+
   html, body {
     height: 100dvh;
     height: 100vh;

@@ -541,6 +541,25 @@ class PlayerManager {
       window.appUI.togglePlayPauseSVG(isPlaying);
     }, 500);
   }
+  destroyPlayer() {
+    if (this.hlsInstance) {
+      try { this.hlsInstance.destroy(); } catch(e) {}
+      this.hlsInstance = null;
+    }
+    if (this.mp4Video) {
+      try { this.mp4Video.pause(); this.mp4Video.src = ''; } catch(e) {}
+    }
+    if (this.gdriveVideo) {
+      try { this.gdriveVideo.pause(); this.gdriveVideo.src = ''; } catch(e) {}
+    }
+    if (this.ytPlayer && this.isYTReady) {
+      try { this.ytPlayer.pauseVideo(); } catch(e) {}
+    }
+    this.currentType = null;
+    this.currentMedia = null;
+    this._showContainer('empty');
+    this.showLoadingOverlay(false);
+  }
 }
 
 window.playerManager = new PlayerManager();
