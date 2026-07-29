@@ -554,8 +554,30 @@ app.get('/api/hls-proxy', async (req, res) => {
 io.on('connection', (socket) => {
   console.log(`[Socket] Conectado: ${socket.id}`);
 
+  const cleanupUserPreviousRooms = (socketId) => {
+    const result = roomManager.removeUserFromRoom(socketId);
+    if (result && !result.roomEmpty) {
+      socket.leave(result.roomId);
+      io.to(result.roomId).emit('user_left', {
+        leftSocketId: socketId,
+        users: roomManager.getUsersList(result.room),
+        newHostId: result.room.hostId,
+        sysMessage: result.sysMessage
+      });
+      io.to(result.roomId).emit('voice_room_updated', {
+        voiceMembers: roomManager.getVoiceMembersList(result.room),
+        users: roomManager.getUsersList(result.room)
+      });
+    }
+  };
+
+  socket.on('leave_room', (data) => {
+    cleanupUserPreviousRooms(socket.id);
+  });
+
   socket.on('create_room', (data, callback) => {
     try {
+      cleanupUserPreviousRooms(socket.id);
       const room = roomManager.createRoom(socket.id, data || {});
       const addResult = roomManager.addUserToRoom(room.id, socket.id, data || {});
 
@@ -586,6 +608,7 @@ io.on('connection', (socket) => {
 
   socket.on('join_room', (data, callback) => {
     try {
+      cleanupUserPreviousRooms(socket.id);
       const { roomId, username, avatar } = data || {};
       if (!roomId) {
         if (typeof callback === 'function') return callback({ success: false, error: 'Introduce un código de sala.' });

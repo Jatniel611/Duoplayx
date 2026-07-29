@@ -537,9 +537,13 @@ class WebRTCVoiceManager {
 
     try {
       if (signal.offer) {
-        if (pc.signalingState === 'have-local-offer') {
-          console.warn(`[SDP Glare] Conflicto de oferta local detectado con ${senderSocketId}, descartando...`);
-          return;
+        if (pc.signalingState !== 'stable') {
+          console.warn(`[SDP Glare] Conflicto de oferta detectado con ${senderSocketId}, ejecutando rollback...`);
+          try {
+            await pc.setLocalDescription({ type: 'rollback' });
+          } catch (errRoll) {
+            console.warn('Rollback info:', errRoll);
+          }
         }
         await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
         this._processPendingCandidates(senderSocketId, pc);
