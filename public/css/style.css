@@ -2298,41 +2298,48 @@ body.in-room .mobile-nav-bar {
   padding: 6px !important;
 }
 
-/* ─── CARRUSEL DE MENSAJES EN MISMA LÍNEA ESTILO RAVE / MARQUEE EN PANTALLA COMPLETA ─── */
-.fullscreen-chat-ticker-container {
+/* ─── PISTA DE MENSAJES EN FILA INDIA CONTINUA ESTILO RAVE ─── */
+.fullscreen-ticker-wrapper {
   position: absolute;
   bottom: 64px;
   left: 0;
   width: 100%;
-  height: 42px;
+  height: 44px;
   pointer-events: none;
   z-index: 115;
   overflow: hidden;
   box-sizing: border-box;
 }
 
-.chat-ticker-item {
+.fullscreen-ticker-track {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 36px;
   position: absolute;
+  left: 100vw;
   top: 0;
-  left: 0;
+  height: 100%;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.chat-ticker-item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(8, 4, 20, 0.38);
-  backdrop-filter: blur(10px) saturate(160%);
-  -webkit-backdrop-filter: blur(10px) saturate(160%);
-  border: 1px solid rgba(255, 0, 127, 0.28);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 10px rgba(255, 0, 127, 0.2);
-  border-radius: 20px;
-  padding: 5px 16px;
+  background: rgba(8, 4, 20, 0.42);
+  backdrop-filter: blur(12px) saturate(170%);
+  -webkit-backdrop-filter: blur(12px) saturate(170%);
+  border: 1px solid rgba(255, 0, 127, 0.30);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 10px rgba(255, 0, 127, 0.2);
+  border-radius: 22px;
+  padding: 6px 16px;
   color: #ffffff;
   font-size: 0.88rem;
   font-weight: 600;
   white-space: nowrap;
-  width: fit-content;
-  max-width: 90vw;
-  will-change: transform;
-  animation: raveSlowMarquee 26s linear forwards;
+  flex-shrink: 0;
   pointer-events: auto;
 }
 
@@ -2348,18 +2355,5 @@ body.in-room .mobile-nav-bar {
 
 .chat-ticker-item .ticker-text {
   color: #f1f5f9;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@keyframes raveSlowMarquee {
-  0% {
-    transform: translateX(100vw);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(calc(-100vw - 100%));
-    opacity: 1;
-  }
 }
 
