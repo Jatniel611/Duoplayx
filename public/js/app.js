@@ -443,20 +443,38 @@ class AppUI {
       });
     }
 
-    // CONTROL DE VOLUMEN LOCAL DE VIDEO
+    // CONTROL DE VOLUMEN LOCAL DE VIDEO CON INDICADOR DE PORCENTAJE
+    const updateVolLabel = (val, isMuted) => {
+      const label = document.getElementById('volumePercentageLabel');
+      if (!label) return;
+      if (isMuted || val === 0) {
+        label.textContent = '0%';
+        label.style.color = '#94a3b8';
+      } else if (val > 100) {
+        label.innerHTML = `${val}% 🚀`;
+        label.style.color = '#ff007f';
+      } else {
+        label.textContent = `${val}%`;
+        label.style.color = '#ff69b4';
+      }
+    };
+
     if (this.inputVideoVolume) {
       this.inputVideoVolume.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
+        const val = parseInt(e.target.value) || 0;
         window.playerManager.setLocalVolume(val);
+        updateVolLabel(val, false);
       });
     }
 
     if (this.btnToggleVideoMute) {
       this.btnToggleVideoMute.addEventListener('click', () => {
         const isMuted = window.playerManager.toggleLocalMute();
+        const currentVol = isMuted ? 0 : (window.playerManager.localVolume || 100);
         if (this.inputVideoVolume) {
-          this.inputVideoVolume.value = isMuted ? 0 : 100;
+          this.inputVideoVolume.value = currentVol;
         }
+        updateVolLabel(currentVol, isMuted);
       });
     }
 
