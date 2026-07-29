@@ -427,10 +427,11 @@ app.post('/api/resolve-media', async (req, res) => {
   try {
     let cleanUrl = url.trim();
 
-    // 1. Google Drive
-    if (cleanUrl.includes('drive.google.com') || cleanUrl.includes('drive.usercontent.google.com')) {
-      const match = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || cleanUrl.match(/id=([a-zA-Z0-9_-]+)/);
-      if (match) {
+    // 1. Google Drive (Formatos /file/d/ID, /open?id=ID, /uc?id=ID, etc.)
+    if (cleanUrl.includes('drive.google.com') || cleanUrl.includes('docs.google.com') || cleanUrl.includes('drive.usercontent.google.com')) {
+      const match = cleanUrl.match(/(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?.*id=)([a-zA-Z0-9_-]{20,})/i) ||
+                    cleanUrl.match(/google\.com\/.*(?:file\/d\/|[?&]id=)([a-zA-Z0-9_-]{20,})/i);
+      if (match && match[1]) {
         return res.json({ type: 'gdrive', fileId: match[1], url: `/api/gdrive-stream/${match[1]}`, isGDrive: true });
       }
     }
@@ -442,11 +443,11 @@ app.post('/api/resolve-media', async (req, res) => {
       return res.json({ type: 'youtube', url: cleanUrl, videoId: videoId });
     }
 
-    // 3. Pixeldrain
+    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.)
     if (cleanUrl.includes('pixeldrain.com')) {
-      if (cleanUrl.includes('/u/')) {
-        const fileId = cleanUrl.split('/u/')[1].split('/')[0].split('?')[0];
-        cleanUrl = `https://pixeldrain.com/api/file/${fileId}`;
+      const pxMatch = cleanUrl.match(/pixeldrain\.com\/(?:u|api\/file|l)\/([a-zA-Z0-9_-]+)/i);
+      if (pxMatch && pxMatch[1]) {
+        cleanUrl = `https://pixeldrain.com/api/file/${pxMatch[1]}`;
       }
       return res.json({ type: 'mp4', url: cleanUrl });
     }

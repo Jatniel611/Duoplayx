@@ -242,32 +242,19 @@ class PlayerManager {
       this._showContainer('gdrive');
 
       const proxyUrl = media.url || `/api/gdrive-stream/${media.fileId}`;
-      console.log(`[GDrive] Cargando MP4 via proxy: ${proxyUrl}`);
+      console.log(`[GDrive] Cargando película de Drive vía proxy: ${proxyUrl}`);
 
-      if (window.appUI) window.appUI.showToast('🔄 Cargando MP4 de Google Drive...', 'info');
-
-      try {
-        const checkRes = await fetch(proxyUrl, { method: 'HEAD' });
-        if (checkRes.status === 429) {
-          console.warn('[GDrive] 🛑 Cuota excedida detectada');
-          if (window.appUI) {
-            window.appUI.showToast('🛑 Google Drive: Se superó la cuota diaria de descarga de este archivo. Copia el archivo a tu propio Google Drive o sube otro enlace.', 'danger');
-          }
-          return;
-        }
-      } catch (err) {
-        console.warn('[GDrive Check Error]:', err.message);
-      }
+      if (window.appUI) window.appUI.showToast('🔄 Cargando película de Google Drive...', 'info');
 
       this.gdriveVideo.src = proxyUrl;
       this.gdriveVideo.load();
 
       this.gdriveVideo.addEventListener('canplay', () => {
-        if (window.appUI) window.appUI.showToast('✅ MP4 de Drive listo para reproducir 🎬', 'success');
+        if (window.appUI) window.appUI.showToast('✅ Película de Drive lista para reproducir 🎬', 'success');
       }, { once: true });
 
       if (autoPlay) {
-        this.gdriveVideo.play().catch(err => console.log('[GDrive] Autoplay bloqueado:', err.message));
+        this.gdriveVideo.play().catch(err => console.log('[GDrive] Autoplay diferido:', err.message));
       } else {
         this.gdriveVideo.pause();
       }
