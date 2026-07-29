@@ -556,18 +556,20 @@ io.on('connection', (socket) => {
 
   const cleanupUserPreviousRooms = (socketId) => {
     const result = roomManager.removeUserFromRoom(socketId);
-    if (result && !result.roomEmpty) {
+    if (result) {
       socket.leave(result.roomId);
-      io.to(result.roomId).emit('user_left', {
-        leftSocketId: socketId,
-        users: roomManager.getUsersList(result.room),
-        newHostId: result.room.hostId,
-        sysMessage: result.sysMessage
-      });
-      io.to(result.roomId).emit('voice_room_updated', {
-        voiceMembers: roomManager.getVoiceMembersList(result.room),
-        users: roomManager.getUsersList(result.room)
-      });
+      if (!result.roomEmpty && result.room) {
+        io.to(result.roomId).emit('user_left', {
+          leftSocketId: socketId,
+          users: roomManager.getUsersList(result.room),
+          newHostId: result.room.hostId,
+          sysMessage: result.sysMessage
+        });
+        io.to(result.roomId).emit('voice_room_updated', {
+          voiceMembers: roomManager.getVoiceMembersList(result.room),
+          users: roomManager.getUsersList(result.room)
+        });
+      }
     }
   };
 
