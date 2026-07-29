@@ -844,12 +844,8 @@ class AppUI {
 
       clearTimeout(this.inactivityTimer);
       this.inactivityTimer = setTimeout(() => {
-        const stage = this.playerStage || document.getElementById('playerStage');
-        const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement) || (stage && stage.classList.contains('fullscreen-active'));
-        if (isFS) {
-          this.isUserActiveInStage = false;
-          this.showStageFloatingUI(false);
-        }
+        this.isUserActiveInStage = false;
+        this.showStageFloatingUI(false);
       }, 3500);
     };
 
@@ -1368,7 +1364,7 @@ class AppUI {
         if (tickerItem && tickerItem.parentNode) {
           tickerItem.parentNode.removeChild(tickerItem);
         }
-      }, 5500);
+      }, 8600);
     }
   }
 

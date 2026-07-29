@@ -2298,19 +2298,17 @@ body.in-room .mobile-nav-bar {
   padding: 6px !important;
 }
 
-/* ─── CARRUSEL DE MENSAJES ESTILO RAVE PARA PANTALLA COMPLETA ─── */
+/* ─── CARRUSEL DE MENSAJES ESTILO RAVE / TV NEWS MARQUEE PARA PANTALLA COMPLETA ─── */
 .fullscreen-chat-ticker-container {
   position: absolute;
-  bottom: 68px;
+  bottom: 64px;
   left: 0;
   width: 100%;
   pointer-events: none;
   z-index: 115;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 6px;
-  padding: 0 16px;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -2319,24 +2317,25 @@ body.in-room .mobile-nav-bar {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(10, 6, 24, 0.88);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(255, 0, 127, 0.5);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.75), 0 0 14px rgba(255, 0, 127, 0.4);
+  background: rgba(10, 6, 24, 0.78);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 0, 127, 0.45);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65), 0 0 12px rgba(255, 0, 127, 0.35);
   border-radius: 20px;
-  padding: 6px 14px;
+  padding: 6px 16px;
   color: #ffffff;
-  font-size: 0.84rem;
-  font-weight: 500;
-  max-width: 85%;
+  font-size: 0.88rem;
+  font-weight: 600;
   white-space: nowrap;
-  animation: raveTickerSlide 5.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  width: fit-content;
+  will-change: transform;
+  animation: raveScrollingNews 8.5s linear forwards;
   pointer-events: auto;
 }
 
 .chat-ticker-item .ticker-avatar {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
 }
 
 .chat-ticker-item .ticker-username {
@@ -2346,27 +2345,17 @@ body.in-room .mobile-nav-bar {
 }
 
 .chat-ticker-item .ticker-text {
-  color: #e2e8f0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: #f1f5f9;
 }
 
-@keyframes raveTickerSlide {
+@keyframes raveScrollingNews {
   0% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  12% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  80% {
-    transform: translateX(0);
+    transform: translateX(100vw);
     opacity: 1;
   }
   100% {
     transform: translateX(-100%);
-    opacity: 0;
+    opacity: 1;
   }
 }
 
