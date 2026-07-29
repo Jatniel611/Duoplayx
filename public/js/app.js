@@ -1151,9 +1151,20 @@ class AppUI {
       return this.showToast('Error al recibir información de la sala.', 'danger');
     }
 
+    // Si ya estábamos en una sala previa, limpiar reproductor
+    if (this.currentRoom && this.currentRoom.roomId !== roomData.roomId) {
+      if (window.playerManager) window.playerManager.destroyPlayer();
+    }
+
     this.currentRoom = roomData;
     document.body.classList.add('in-room');
+
+    // Cerrar TODOS los modales y ventanas flotantes activas
     if (this.modalLobby) this.modalLobby.style.display = 'none';
+    if (this.modalSwitchRoom) this.modalSwitchRoom.style.display = 'none';
+    if (this.emojiPickerPopover) this.emojiPickerPopover.style.display = 'none';
+    if (this.gifPickerPopover) this.gifPickerPopover.style.display = 'none';
+    if (this.floatingChatOverlay) this.floatingChatOverlay.style.display = 'none';
 
     if (this.mainRoom) {
       const isPortrait = window.matchMedia('(orientation: portrait)').matches || window.innerWidth <= 768;
@@ -1579,6 +1590,25 @@ class AppUI {
       return true;
     }
     return false;
+  }
+
+  leaveRoom() {
+    if (window.socketManager) {
+      window.socketManager.leaveCurrentRoom();
+    }
+    if (window.webrtcVoiceManager) {
+      window.webrtcVoiceManager.leaveVoiceRoom();
+    }
+    if (window.playerManager) {
+      window.playerManager.destroyPlayer();
+    }
+    this.currentRoom = null;
+    document.body.classList.remove('in-room');
+    if (this.mainRoom) this.mainRoom.style.display = 'none';
+    if (this.headerRoomInfo) this.headerRoomInfo.style.display = 'none';
+    if (this.modalSwitchRoom) this.modalSwitchRoom.style.display = 'none';
+    if (this.modalLobby) this.modalLobby.style.display = 'flex';
+    this.showToast('Has salido de la sala 👋', 'info');
   }
 
   formatTime(seconds) {
