@@ -1348,24 +1348,53 @@ class AppUI {
     }
 
     // Carrusel ticker de mensajes estilo Rave para Pantalla Completa
+    this.pushTickerMessage(msg);
+  }
+
+  pushTickerMessage(msg) {
+    if (!msg || msg.type === 'system') return;
     const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement || document.body.classList.contains('fullscreen-active'));
-    const tickerContainer = document.getElementById('fullscreenChatTickerContainer');
-    if (isFS && tickerContainer && msg.type !== 'system') {
-      const tickerItem = document.createElement('div');
-      tickerItem.className = 'chat-ticker-item';
-      let textContent = msg.text ? this.escapeHTML(msg.text) : (msg.gifUrl ? '🖼️ GIF' : '');
-      tickerItem.innerHTML = `
-        <span class="ticker-avatar">${msg.user?.avatar || '⚡'}</span>
-        <span class="ticker-username">${this.escapeHTML(msg.user?.username || 'Usuario')}:</span>
-        <span class="ticker-text">${textContent}</span>
-      `;
-      tickerContainer.appendChild(tickerItem);
-      setTimeout(() => {
-        if (tickerItem && tickerItem.parentNode) {
-          tickerItem.parentNode.removeChild(tickerItem);
-        }
-      }, 16100);
+    const container = document.getElementById('fullscreenChatTickerContainer');
+    if (!isFS || !container) return;
+
+    // Calcular el retraso necesario si hay otro mensaje recién entrando en pantalla
+    const existingItems = container.querySelectorAll('.chat-ticker-item');
+    let delay = 0;
+    if (existingItems.length > 0) {
+      const lastItem = existingItems[existingItems.length - 1];
+      const lastRect = lastItem.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const distanceFromRight = containerRect.right - lastRect.right;
+
+      // Garantizar un espacio mínimo de 280px entre mensajes en la misma línea
+      if (distanceFromRight < 280) {
+        const pixelsNeeded = 280 - distanceFromRight;
+        const speedPixelsPerSec = (containerRect.width + 300) / 26; // velocidad calculada para 26s
+        delay = pixelsNeeded / Math.max(speedPixelsPerSec, 20);
+      }
     }
+
+    const tickerItem = document.createElement('div');
+    tickerItem.className = 'chat-ticker-item';
+    if (delay > 0) {
+      tickerItem.style.animationDelay = `${delay.toFixed(2)}s`;
+    }
+
+    let textContent = msg.text ? this.escapeHTML(msg.text) : (msg.gifUrl ? '🖼️ GIF' : '');
+    tickerItem.innerHTML = `
+      <span class="ticker-avatar">${msg.user?.avatar || '⚡'}</span>
+      <span class="ticker-username">${this.escapeHTML(msg.user?.username || 'Usuario')}:</span>
+      <span class="ticker-text">${textContent}</span>
+    `;
+
+    container.appendChild(tickerItem);
+
+    const totalLifetimeMs = (26 + delay + 1) * 1000;
+    setTimeout(() => {
+      if (tickerItem && tickerItem.parentNode) {
+        tickerItem.parentNode.removeChild(tickerItem);
+      }
+    }, totalLifetimeMs);
   }
 
   updateChatMessageReactions(msgId, reactions) {

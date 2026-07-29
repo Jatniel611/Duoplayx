@@ -2332,7 +2332,7 @@ body.in-room .mobile-nav-bar {
   width: fit-content;
   max-width: 90vw;
   will-change: transform;
-  animation: raveSingleLineMarquee 16s linear forwards;
+  animation: raveSlowMarquee 26s linear forwards;
   pointer-events: auto;
 }
 
@@ -2352,7 +2352,7 @@ body.in-room .mobile-nav-bar {
   text-overflow: ellipsis;
 }
 
-@keyframes raveSingleLineMarquee {
+@keyframes raveSlowMarquee {
   0% {
     transform: translateX(100vw);
     opacity: 1;
