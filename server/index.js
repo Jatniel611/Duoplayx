@@ -462,27 +462,29 @@ app.post('/api/resolve-media', async (req, res) => {
   try {
     let cleanUrl = url.trim();
 
-    // 1. Google Drive (Formatos /file/d/ID, /open?id=ID, /uc?id=ID, etc.)
+    // 1. Google Drive (Formatos /file/d/ID, /open?id=ID, /uc?id=ID, etc.) - Directo (0% servidor)
     if (cleanUrl.includes('drive.google.com') || cleanUrl.includes('docs.google.com') || cleanUrl.includes('drive.usercontent.google.com')) {
       const match = cleanUrl.match(/(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?.*id=)([a-zA-Z0-9_-]{20,})/i) ||
                     cleanUrl.match(/google\.com\/.*(?:file\/d\/|[?&]id=)([a-zA-Z0-9_-]{20,})/i);
       if (match && match[1]) {
-        return res.json({ type: 'gdrive', fileId: match[1], url: `/api/gdrive-stream/${match[1]}`, isGDrive: true });
+        const fileId = match[1];
+        const directUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+        return res.json({ type: 'gdrive', fileId: fileId, url: directUrl, isGDrive: true });
       }
     }
 
-    // 2. YouTube
+    // 2. YouTube (Directo 0% servidor)
     if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
       const ytMatch = cleanUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
       const videoId = ytMatch ? ytMatch[1] : null;
       return res.json({ type: 'youtube', url: cleanUrl, videoId: videoId });
     }
 
-    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.) - Streaming proxy infalible
+    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.) - Directo (0% servidor)
     if (cleanUrl.includes('pixeldrain.com')) {
       const pxMatch = cleanUrl.match(/pixeldrain\.com\/(?:u|api\/file|l)\/([a-zA-Z0-9_-]+)/i);
       if (pxMatch && pxMatch[1]) {
-        return res.json({ type: 'mp4', url: `/api/pixeldrain-stream/${pxMatch[1]}` });
+        return res.json({ type: 'mp4', url: `https://pixeldrain.com/api/file/${pxMatch[1]}` });
       }
     }
 
