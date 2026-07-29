@@ -702,6 +702,22 @@ class AppUI {
       });
     }
 
+    const btnNavMainMic = document.getElementById('btnNavMainMic');
+    if (btnNavMainMic) {
+      btnNavMainMic.addEventListener('click', async () => {
+        const micId = this.selectMicDevice ? this.selectMicDevice.value : null;
+        const isMuted = await window.webrtcVoiceManager.toggleMic(micId);
+        this.updateMicUIState(isMuted);
+      });
+    }
+
+    const btnNavProfile = document.getElementById('btnNavProfile');
+    if (btnNavProfile) {
+      btnNavProfile.addEventListener('click', () => {
+        if (this.modalSwitchRoom) this.modalSwitchRoom.style.display = 'flex';
+      });
+    }
+
     if (this.selectMicDevice) {
       this.selectMicDevice.addEventListener('focus', () => {
         window.webrtcVoiceManager.populateMicrophones(this.selectMicDevice);
@@ -716,13 +732,20 @@ class AppUI {
   }
 
   updateMicUIState(isMuted) {
+    const micGlowCircle = document.getElementById('micGlowCircle');
+    const mainMicDockLabel = document.getElementById('mainMicDockLabel');
+    const mainMicDockIcon = document.getElementById('mainMicDockIcon');
+
     if (isMuted) {
       if (this.voiceMicStateIcon) this.voiceMicStateIcon.innerText = '🎙️';
       if (this.voiceMicStateLabel) this.voiceMicStateLabel.innerText = 'Encender Micrófono';
       if (this.btnToggleMic) this.btnToggleMic.className = 'btn btn-sm btn-secondary';
       if (this.mobileMicIcon) this.mobileMicIcon.innerText = '🎙️';
-    if (this.mobileMicLabel) this.mobileMicLabel.innerText = 'Encender Mic';
+      if (this.mobileMicLabel) this.mobileMicLabel.innerText = 'Encender Mic';
       if (this.btnMobileToggleMic) this.btnMobileToggleMic.className = 'btn btn-xs btn-secondary';
+      if (micGlowCircle) micGlowCircle.classList.remove('mic-active');
+      if (mainMicDockLabel) mainMicDockLabel.innerText = 'Hablar';
+      if (mainMicDockIcon) mainMicDockIcon.innerText = '🎙️';
     } else {
       if (this.voiceMicStateIcon) this.voiceMicStateIcon.innerText = '🔇';
       if (this.voiceMicStateLabel) this.voiceMicStateLabel.innerText = 'Apagar Micrófono';
@@ -730,6 +753,9 @@ class AppUI {
       if (this.mobileMicIcon) this.mobileMicIcon.innerText = '🔇';
       if (this.mobileMicLabel) this.mobileMicLabel.innerText = 'Apagar Mic';
       if (this.btnMobileToggleMic) this.btnMobileToggleMic.className = 'btn btn-xs btn-danger-soft';
+      if (micGlowCircle) micGlowCircle.classList.add('mic-active');
+      if (mainMicDockLabel) mainMicDockLabel.innerText = 'Hablando';
+      if (mainMicDockIcon) mainMicDockIcon.innerText = '🎙️';
     }
   }
 

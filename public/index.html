@@ -409,19 +409,34 @@
 
     </main>
 
-    <!-- MOBILE BOTTOM NAVIGATION -->
+    <!-- MOBILE BOTTOM NAVIGATION (ESTILO RAVE BLUEPRINT) -->
     <nav class="mobile-nav-bar" id="mobileNavBar" style="display: none;">
       <button class="mobile-nav-btn active" id="btnNavPlayer">
-        <span class="nav-icon">🎬</span>
-        <span class="nav-label">Video</span>
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Sala</span>
       </button>
+      
       <button class="mobile-nav-btn" id="btnNavChat">
         <span class="nav-icon">💬</span>
         <span class="nav-label">Chat</span>
       </button>
+
+      <!-- BOTÓN PRINCIPAL DE MICRÓFONO AL CENTRO CON GLOW PURPURA/NEÓN (ESTILO RAVE) -->
+      <button class="mobile-nav-mic-btn" id="btnNavMainMic" title="Encender / Apagar Micrófono">
+        <div class="mic-glow-circle" id="micGlowCircle">
+          <span class="mic-icon" id="mainMicDockIcon">🎙️</span>
+        </div>
+        <span class="nav-label-mic" id="mainMicDockLabel">Hablar</span>
+      </button>
+
       <button class="mobile-nav-btn" id="btnNavUsers">
         <span class="nav-icon">👥</span>
         <span class="nav-label">Amigos</span>
+      </button>
+
+      <button class="mobile-nav-btn" id="btnNavProfile">
+        <span class="nav-icon">👤</span>
+        <span class="nav-label">Perfil</span>
       </button>
     </nav>
 
