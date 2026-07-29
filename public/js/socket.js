@@ -15,7 +15,16 @@ class SocketManager {
     if (this.socket && this.socket.connected) return;
 
     let serverUrl = window.location.origin;
-    if (!serverUrl || serverUrl.startsWith('file:') || serverUrl.startsWith('capacitor:') || serverUrl === 'null') {
+    const isMobileHost = !!window.Capacitor ||
+                         !serverUrl ||
+                         serverUrl.startsWith('file:') ||
+                         serverUrl.startsWith('capacitor:') ||
+                         serverUrl === 'null' ||
+                         serverUrl.includes('localhost') ||
+                         serverUrl.includes('127.0.0.1') ||
+                         serverUrl.includes('10.0.2.2');
+
+    if (isMobileHost) {
       serverUrl = 'https://duoplayx.onrender.com';
     }
 
