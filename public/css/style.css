@@ -151,10 +151,15 @@ body.dark-theme {
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
   background: rgba(3, 2, 8, 0.95); backdrop-filter: blur(20px);
-  display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+  display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;
+  overflow-y: auto !important; box-sizing: border-box; -webkit-overflow-scrolling: touch;
 }
 
-.lobby-card { width: 100%; max-width: 480px; padding: 36px; border: 1px solid rgba(255, 0, 127, 0.35); box-shadow: var(--accent-glow); }
+.lobby-card {
+  width: 100%; max-width: 480px; padding: 28px;
+  border: 1px solid rgba(255, 0, 127, 0.35); box-shadow: var(--accent-glow);
+  margin: auto; max-height: 92vh; overflow-y: auto !important;
+}
 .lobby-header { text-align: center; margin-bottom: 24px; }
 .hero-logo { display: inline-flex; width: 75px; height: 75px; background: var(--accent-gradient); border-radius: var(--radius-lg); align-items: center; justify-content: center; margin-bottom: 14px; box-shadow: var(--accent-glow); }
 .hero-icon { font-size: 2.6rem; }
@@ -922,8 +927,7 @@ body.fullscreen-active .player-section {
   html, body {
     height: 100dvh;
     height: 100vh;
-    overflow: hidden !important;
-    position: fixed;
+    overflow-x: hidden;
     width: 100vw;
   }
 
@@ -938,34 +942,43 @@ body.fullscreen-active .player-section {
   }
 
   .app-header {
-    padding: 4px 8px;
+    padding: 4px 6px;
     margin-bottom: 4px;
     flex-shrink: 0;
-    height: 44px;
+    height: auto;
+    min-height: 38px;
     box-sizing: border-box;
     width: 100%;
     max-width: 100%;
-    overflow: hidden;
+    overflow-x: auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 4px;
   }
   
-  .logo-container { gap: 6px; flex-shrink: 1; min-width: 0; }
-  .logo-icon { width: 30px; height: 30px; font-size: 1.05rem; border-radius: 8px; flex-shrink: 0; }
-  .brand-name { font-size: 0.9rem; font-weight: 800; white-space: nowrap; }
+  .logo-container { gap: 4px; flex-shrink: 0; min-width: 0; }
+  .logo-icon-img { width: 22px; height: 22px; object-fit: contain; }
+  .brand-name { font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
   .brand-sub { display: none !important; }
   .hide-mobile { display: none !important; }
 
-  .header-room-info { gap: 4px; flex-shrink: 0; display: flex; align-items: center; }
-  .room-badge { padding: 2px 7px; font-size: 0.72rem; border-radius: 12px; gap: 4px; }
+  .header-room-info { gap: 3px; flex-shrink: 0; display: flex; align-items: center; }
+  .room-badge { padding: 2px 5px; font-size: 0.68rem; border-radius: 8px; gap: 3px; }
   .room-label { display: none !important; }
-  #btnCopyInvite { padding: 4px 8px; font-size: 0.75rem; border-radius: 8px; }
+  #btnCopyInvite { padding: 3px 6px; font-size: 0.72rem; border-radius: 6px; }
+  #btnOpenSwitchRoomModal { padding: 3px 8px; font-size: 0.72rem; border-radius: 6px; }
+
+  #pinnedNoticeBanner { display: none !important; }
 
   .header-user-profile { flex-shrink: 0; }
   .btn-profile { padding: 3px 6px; gap: 2px; }
   #headerUserName { display: none !important; }
+
+  .lobby-card .btn-lg {
+    padding: 10px 14px !important;
+    font-size: 0.85rem !important;
+  }
 
   .main-content, #mainRoom {
     display: flex !important;

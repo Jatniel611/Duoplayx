@@ -266,11 +266,16 @@ class AppUI {
       });
     }
 
-    // Solución táctil para apertura inmediata del teclado virtual en Android
-    document.addEventListener('touchstart', (e) => {
+    // Garantizar que la pulsación táctil en inputs active el foco nativo y se desplace hacia la vista en Android
+    document.addEventListener('pointerdown', (e) => {
       const target = e.target;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
-        setTimeout(() => target.focus(), 50);
+        target.focus();
+        setTimeout(() => {
+          try {
+            target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          } catch (err) {}
+        }, 300);
       }
     }, { passive: true });
 
