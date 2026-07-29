@@ -201,44 +201,48 @@
           </form>
         </div>
 
-        <!-- Controles estilo YouTube -->
+        <!-- Carrusel de mensajes flotante para pantalla completa estilo Rave -->
+        <div class="fullscreen-chat-ticker-container" id="fullscreenChatTickerContainer"></div>
+
+        <!-- Controles estilo YouTube compacto -->
         <div class="timeline-controls-bar yt-controls-bar" id="timelineControlsBar">
           <div class="yt-progress-container">
             <input type="range" id="timeProgressSlider" class="yt-progress-slider" min="0" max="100" value="0" step="0.1">
           </div>
           <div class="yt-controls-row">
-            <div class="yt-left-controls">
-              <div class="host-controls-group" id="hostBtnsGroup">
-                <button class="yt-btn-ctrl" id="btnHostRewind" title="Retroceder 10s">
-                  <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-                </button>
-                <button class="yt-play-btn" id="btnHostPlayPause" title="Reproducir / Pausar">
-                  <svg class="svg-main-play" id="svgPlayIcon" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
-                  <svg class="svg-main-pause" id="svgPauseIcon" viewBox="0 0 24 24" style="display:none;"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                </button>
-                <button class="yt-btn-ctrl" id="btnHostForward" title="Adelantar 10s">
-                  <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/></svg>
-                </button>
-              </div>
-              <div class="yt-vol-group">
-                <button class="yt-btn-ctrl" id="btnToggleVideoMute" title="Silenciar">
-                  <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
-                </button>
-                <input type="range" id="inputVideoVolume" class="yt-vol-slider" min="0" max="100" value="100">
-              </div>
-              <div class="yt-time-display">
-                <span id="timeCurrent">00:00</span> / <span id="timeDuration">00:00</span>
-              </div>
+            <!-- 1. Botón de Play / Controles de Host -->
+            <div class="host-controls-group" id="hostBtnsGroup">
+              <button class="yt-btn-ctrl" id="btnHostRewind" title="Retroceder 10s">
+                <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+              </button>
+              <button class="yt-play-btn" id="btnHostPlayPause" title="Reproducir / Pausar">
+                <svg class="svg-main-play" id="svgPlayIcon" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+                <svg class="svg-main-pause" id="svgPauseIcon" viewBox="0 0 24 24" style="display:none;"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+              </button>
+              <button class="yt-btn-ctrl" id="btnHostForward" title="Adelantar 10s">
+                <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/></svg>
+              </button>
             </div>
-            <div class="yt-right-controls">
-              <select id="selectVideoQuality" class="quality-select-dropdown">
-                <option value="auto">⚙️ Auto</option>
-                <option value="1080">1080p</option>
-                <option value="720">720p</option>
-                <option value="480">480p</option>
-              </select>
-              <button class="btn btn-sm btn-secondary" id="btnResync"><span>🔄 Sync</span></button>
+
+            <!-- 2. Botón de Mutear / Desmutear -->
+            <button class="yt-btn-ctrl" id="btnToggleVideoMute" title="Silenciar / Activar sonido">
+              <svg class="svg-ctrl-icon" id="svgMuteIcon" viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+            </button>
+
+            <!-- 3. Tiempo horas y minutos -->
+            <div class="yt-time-display">
+              <span id="timeCurrent">00:00</span> / <span id="timeDuration">00:00</span>
             </div>
+
+            <!-- 4. Barra de volumen -->
+            <div class="yt-vol-group">
+              <input type="range" id="inputVideoVolume" class="yt-vol-slider" min="0" max="100" value="100" title="Volumen">
+            </div>
+
+            <!-- 5. Icono de Sincronizar solo icono -->
+            <button class="yt-btn-ctrl btn-resync-icon" id="btnResync" title="Sincronizar con Host">
+              <svg class="svg-ctrl-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+            </button>
           </div>
         </div>
       </div>

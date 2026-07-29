@@ -1330,6 +1330,26 @@ class AppUI {
       }
       this.highlightFloatingBubbleOnNewMessage();
     }
+
+    // Carrusel ticker de mensajes estilo Rave para Pantalla Completa
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement || document.body.classList.contains('fullscreen-active'));
+    const tickerContainer = document.getElementById('fullscreenChatTickerContainer');
+    if (isFS && tickerContainer && msg.type !== 'system') {
+      const tickerItem = document.createElement('div');
+      tickerItem.className = 'chat-ticker-item';
+      let textContent = msg.text ? this.escapeHTML(msg.text) : (msg.gifUrl ? '🖼️ GIF' : '');
+      tickerItem.innerHTML = `
+        <span class="ticker-avatar">${msg.user?.avatar || '⚡'}</span>
+        <span class="ticker-username">${this.escapeHTML(msg.user?.username || 'Usuario')}:</span>
+        <span class="ticker-text">${textContent}</span>
+      `;
+      tickerContainer.appendChild(tickerItem);
+      setTimeout(() => {
+        if (tickerItem && tickerItem.parentNode) {
+          tickerItem.parentNode.removeChild(tickerItem);
+        }
+      }, 5500);
+    }
   }
 
   updateChatMessageReactions(msgId, reactions) {
@@ -1536,7 +1556,7 @@ class AppUI {
       document.body.classList.add('floating-chat-open');
       this.unreadChatCount = 0;
       if (this.chatUnreadBadge) this.chatUnreadBadge.style.display = 'none';
-      if (this.inputFloatingChatMessage) this.inputFloatingChatMessage.focus();
+      // No enfocamos el input automáticamente para no desplegar el teclado Android
     } else {
       this.floatingChatOverlay.style.display = 'none';
       document.body.classList.remove('floating-chat-open');

@@ -2282,3 +2282,91 @@ body.in-room .mobile-nav-bar {
   }
 }
 
+/* ─── ALINEACIÓN COMPACTA EN UNA FILA DE CONTROLES ─── */
+.yt-controls-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: 100% !important;
+  flex-wrap: nowrap !important;
+}
+
+.btn-resync-icon {
+  margin-left: auto !important;
+  border-radius: 50% !important;
+  padding: 6px !important;
+}
+
+/* ─── CARRUSEL DE MENSAJES ESTILO RAVE PARA PANTALLA COMPLETA ─── */
+.fullscreen-chat-ticker-container {
+  position: absolute;
+  bottom: 68px;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 115;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 0 16px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.chat-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(10, 6, 24, 0.88);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 0, 127, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.75), 0 0 14px rgba(255, 0, 127, 0.4);
+  border-radius: 20px;
+  padding: 6px 14px;
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 500;
+  max-width: 85%;
+  white-space: nowrap;
+  animation: raveTickerSlide 5.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: auto;
+}
+
+.chat-ticker-item .ticker-avatar {
+  font-size: 1.1rem;
+}
+
+.chat-ticker-item .ticker-username {
+  font-weight: 800;
+  color: #ff69b4;
+  margin-right: 2px;
+}
+
+.chat-ticker-item .ticker-text {
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes raveTickerSlide {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  12% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  80% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
