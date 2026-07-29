@@ -1288,49 +1288,116 @@ body.in-room .mobile-nav-bar {
   }
   .toast { padding: 8px 12px; font-size: 0.8rem; }
 
-  /* Barra de Navegación Fija Inferior (Súper Compacta & Estilizada) */
+  /* ═══════════════════════════════════════════════════════
+     BARRA DOCK INFERIOR — PREMIUM CYBER GLASS STYLE
+     ═══════════════════════════════════════════════════════ */
   .mobile-nav-bar {
-    display: none; align-items: center; justify-content: space-around;
-    background: rgba(8, 6, 16, 0.96); backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255, 0, 127, 0.3); padding: 1px 8px;
-    position: fixed !important; bottom: 0 !important; left: 0 !important;
-    width: 100vw !important; z-index: 1000 !important;
-    height: 40px !important; box-sizing: border-box;
+    display: none;
+    align-items: center;
+    justify-content: space-around;
+    background: linear-gradient(180deg, rgba(6,4,14,0.0) 0%, rgba(5,3,12,0.97) 100%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border-top: 1px solid rgba(255, 0, 127, 0.28);
+    padding: 4px 6px 6px;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    z-index: 1000 !important;
+    height: 58px !important;
+    box-sizing: border-box;
+    gap: 4px;
   }
 
   body.in-room .mobile-nav-bar {
     display: flex !important;
   }
 
-  .mobile-nav-btn {
-    display: flex; flex-direction: column; align-items: center; gap: 0px;
-    background: none; border: none; color: var(--text-muted);
-    font-size: 0.6rem; font-weight: 600; cursor: pointer; flex: 1;
+  /* Botones normales de la barra */
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    color: rgba(180,170,210,0.85);
+    font-size: 0.58rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    flex: 1;
+    padding: 5px 4px;
+    transition: all 0.22s cubic-bezier(0.16,1,0.3,1);
+    min-width: 0;
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
   }
 
-  .mobile-nav-btn.active { color: var(--accent-fuchsia); }
-  .mobile-nav-btn .nav-icon { font-size: 0.92rem; }
+  .nav-item .nav-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+  }
 
-  .mobile-nav-mic-btn {
-    display: flex; flex-direction: column; align-items: center;
-    background: none; border: none; cursor: pointer;
-    position: relative; top: -6px; z-index: 1001; flex: 1;
+  .nav-item.active {
+    background: rgba(255, 0, 127, 0.18);
+    border-color: rgba(255, 0, 127, 0.55);
+    color: #ff69b4;
+    box-shadow: 0 0 10px rgba(255, 0, 127, 0.35);
+  }
+
+  .nav-item:active {
+    transform: scale(0.92);
+  }
+
+  /* Botón central de MICRÓFONO — Elevado & Brillante */
+  .mic-dock-btn {
+    flex: 1.4;
+    background: linear-gradient(135deg, #ff007f 0%, #d946ef 55%, #8b5cf6 100%) !important;
+    border: 2px solid rgba(255,255,255,0.35) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 0 20px rgba(255,0,127,0.7), 0 4px 15px rgba(0,0,0,0.5) !important;
+    color: #fff !important;
+    padding: 6px 8px !important;
+    position: relative;
+    top: -8px;
+    height: 52px !important;
+    min-height: 52px;
+  }
+
+  .mic-dock-btn .nav-icon {
+    font-size: 1.3rem !important;
+  }
+
+  .mic-dock-btn .nav-label {
+    font-size: 0.62rem !important;
+    color: #fff !important;
+    letter-spacing: 0.5px;
+  }
+
+  .mic-dock-btn:active {
+    transform: scale(0.9) translateY(2px) !important;
+    box-shadow: 0 0 30px rgba(255,0,127,1), 0 2px 8px rgba(0,0,0,0.7) !important;
   }
 
   .mic-glow-circle {
     width: 36px; height: 36px; border-radius: 50%;
     background: var(--accent-gradient);
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 15px rgba(255, 0, 127, 0.85);
-    border: 1.5px solid #fff; transition: all 0.25s ease;
+    box-shadow: 0 0 18px rgba(255, 0, 127, 0.9);
+    border: 2px solid rgba(255,255,255,0.4);
+    transition: all 0.25s ease;
   }
 
-  .mic-glow-circle .mic-icon { font-size: 0.88rem; }
-  .nav-label-mic { font-size: 0.58rem; color: var(--text-muted); font-weight: 700; margin-top: 1px; }
+  .mic-glow-circle .mic-icon { font-size: 0.9rem; }
+  .nav-label-mic { font-size: 0.56rem; color: var(--text-muted); font-weight: 700; margin-top: 1px; }
 
   .mic-glow-circle.mic-active {
     background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-    box-shadow: 0 0 15px rgba(16, 185, 129, 0.95) !important;
+    box-shadow: 0 0 22px rgba(16, 185, 129, 1) !important;
   }
 
 /* ─── NUEVAS CARDS Y PANELES ESTILO RAVE BLUEPRINT ─── */

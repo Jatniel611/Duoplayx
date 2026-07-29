@@ -1,281 +1,300 @@
 /**
- * SocketManager - Manejador de eventos Socket.io para DuoPlayX
+ * SocketManager - DuoPlayX
+ * Conexión robusta a servidor Render con detección automática de plataforma
  */
-
 class SocketManager {
   constructor() {
     this.socket = null;
     this.currentRoomId = null;
     this.currentUser = null;
     this.isHost = false;
-    this.init();
+    this._initDone = false;
+    this._initSocket();
   }
 
-  init() {
-    let serverUrl = window.location.origin;
+  _getServerUrl() {
+    const origin = window.location.origin || '';
+    // Android APK (Capacitor), file://, o localhost sin servidor web
+    const isNativeApp = (
+      !!window.Capacitor ||
+      origin === '' ||
+      origin === 'null' ||
+      origin.startsWith('file:') ||
+      origin.startsWith('capacitor:') ||
+      origin === 'https://localhost' ||
+      origin === 'http://localhost' ||
+      (origin.includes('localhost') && /Android|Mobile|Capacitor/i.test(navigator.userAgent || ''))
+    );
+    return isNativeApp ? 'https://duoplayx.onrender.com' : origin;
+  }
 
-    // Detectar si estamos en APK Android (Capacitor), archivo local file:// o app nativa
-    const isLocalFileOrCapacitor = !serverUrl ||
-                                   serverUrl === 'null' ||
-                                   serverUrl.startsWith('file:') ||
-                                   serverUrl.startsWith('capacitor:') ||
-                                   serverUrl === 'https://localhost' ||
-                                   serverUrl === 'http://localhost' ||
-                                   (typeof navigator !== 'undefined' && navigator.userAgent && (navigator.userAgent.includes('Android') || navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Capacitor')));
-
-    if (isLocalFileOrCapacitor) {
-      serverUrl = 'https://duoplayx.onrender.com';
-    }
-
+  _initSocket() {
+    if (this._initDone) return;
     if (typeof io === 'undefined') {
-      console.warn('⚠️ Librería socket.io client no detectada todavía.');
+      console.error('[DuoPlayX] socket.io no está disponible. Verificar que js/socket.io.min.js cargó correctamente.');
       return;
     }
 
-    if (this.socket) {
-      if (this.socket.connected) return;
-      try { this.socket.connect(); } catch (e) {}
-      return;
-    }
+    const serverUrl = this._getServerUrl();
+    console.log('[DuoPlayX] Conectando a:', serverUrl);
 
-    console.log(`🔌 Conectando Socket.io a: ${serverUrl}`);
     try {
       this.socket = io(serverUrl, {
         transports: ['polling', 'websocket'],
         reconnection: true,
-        reconnectionAttempts: 50,
-        reconnectionDelay: 800,
-        timeout: 20000
+        reconnectionAttempts: 100,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        forceNew: false
       });
 
-      this.socket.on('connect', () => {
-        console.log('⚡ Conectado al servidor WebSocket:', this.socket.id);
-        if (window.appUI) window.appUI.showToast('✅ Conectado al servidor DuoPlayX', 'success');
-      });
-
-      this.socket.on('connect_error', (err) => {
-        console.warn('⚠️ Error de conexión WebSocket:', err ? err.message : err);
-      });
-
-      this.socket.on('disconnect', () => {
-        console.warn('⚠️ Desconectado del servidor WebSocket');
-        if (window.appUI) window.appUI.showToast('Conexión perdida. Intentando reconectar...', 'warning');
-      });
-
-      this.socket.on('sync_media_action', (data) => {
-        console.log('[Sync Action]:', data);
-        window.playerManager.syncRemoteAction(data.action, data.currentTime, data.isPlaying);
-        window.appUI.updateSyncBadge(true, `Sync con ${data.triggeredBy}`);
-      });
-
-      this.socket.on('media_source_changed', (data) => {
-        console.log('[Media Changed]:', data);
-        window.playerManager.setMediaSource(data.media);
-        if (data.sysMessage) window.appUI.appendChatMessage(data.sysMessage);
-        window.appUI.showToast(`El Host (${data.changedBy}) cambió la película 🎬`, 'info');
-      });
-
-      this.socket.on('user_joined', (data) => {
-        window.appUI.updateUsersList(data.users);
-        if (data.sysMessage) window.appUI.appendChatMessage(data.sysMessage);
-        window.appUI.showToast(`${data.user.username} se unió a la sala 🎉`, 'success');
-        window.webrtcVoiceManager.joinVoiceRoom();
-      });
-
-      this.socket.on('user_left', (data) => {
-        window.appUI.updateUsersList(data.users);
-        if (data.sysMessage) window.appUI.appendChatMessage(data.sysMessage);
-
-        if (data.newHostId === this.socket.id) {
-          this.isHost = true;
-          window.appUI.updateHostControlsView(true);
-          window.appUI.showToast('👑 Ahora eres el Host de la sala.', 'info');
-        }
-      });
-
-      this.socket.on('user_kicked', (data) => {
-        if (data.kickedSocketId === this.socket.id) {
-          alert('Has sido expulsado de la sala por el Host.');
-          window.location.reload();
-        } else {
-          window.appUI.updateUsersList(data.users);
-          if (data.sysMessage) window.appUI.appendChatMessage(data.sysMessage);
-        }
-      });
-
-      const handleVoiceUpdate = (data) => {
-        if (data && data.voiceMembers) {
-          window.appUI.updateVoiceRoomState(data.voiceMembers, data.users || []);
-          window.webrtcVoiceManager.syncVoicePeers(data.voiceMembers);
-        }
-      };
-      this.socket.on('voice_room_updated', handleVoiceUpdate);
-      this.socket.on('voice_members_updated', handleVoiceUpdate);
-
-      const handleSpeaking = (data) => {
-        window.appUI.setUserSpeakingIndicator(data.socketId, data.isSpeaking);
-      };
-      this.socket.on('speaking_state_changed', handleSpeaking);
-
-      this.socket.on('webrtc_signal', (data) => {
-        window.webrtcVoiceManager.handleIncomingSignal(data.senderSocketId, data.signal);
-      });
-
-      this.socket.on('new_chat_message', (msg) => {
-        window.appUI.appendChatMessage(msg);
-      });
-
-      this.socket.on('new_reaction', (data) => {
-        window.appUI.showFloatingReaction(data.emoji, data.user?.username);
-      });
-
-      this.socket.on('chat_message_reaction_updated', (data) => {
-        window.appUI.updateChatMessageReactions(data.msgId, data.reactions);
-      });
+      this._initDone = true;
+      this._bindSocketEvents();
     } catch (e) {
-      console.error('Error al instanciar io():', e);
+      console.error('[DuoPlayX] Error al crear socket:', e);
     }
   }
 
-  leaveCurrentRoom() {
-    try {
-      if (window.webrtcVoiceManager) {
-        window.webrtcVoiceManager.leaveVoiceRoom();
+  _bindSocketEvents() {
+    const s = this.socket;
+
+    s.on('connect', () => {
+      console.log('[DuoPlayX] Conectado al servidor. ID:', s.id);
+      const el = document.getElementById('connectionStatusLobby');
+      if (el) { el.textContent = '✅ Conectado a DuoPlayX'; el.style.color = '#10b981'; }
+      if (window.appUI) window.appUI.showToast('✅ Conectado al servidor DuoPlayX', 'success');
+    });
+
+    s.on('connect_error', (err) => {
+      console.warn('[DuoPlayX] Error de conexión:', err && err.message);
+      const el = document.getElementById('connectionStatusLobby');
+      if (el) { el.textContent = '🔄 Reconectando...'; el.style.color = '#f59e0b'; }
+    });
+
+    s.on('disconnect', (reason) => {
+      console.warn('[DuoPlayX] Desconectado. Razón:', reason);
+      if (window.appUI) window.appUI.showToast('⚠️ Conexión perdida. Reconectando...', 'warning');
+    });
+
+    s.on('reconnect', () => {
+      console.log('[DuoPlayX] Reconectado al servidor.');
+      if (window.appUI) window.appUI.showToast('✅ Reconexión exitosa', 'success');
+    });
+
+    // Sincronización de reproductor
+    s.on('sync_media_action', (data) => {
+      if (window.playerManager) window.playerManager.syncRemoteAction(data.action, data.currentTime, data.isPlaying);
+      if (window.appUI) window.appUI.updateSyncBadge(true, `Sync con ${data.triggeredBy}`);
+    });
+
+    s.on('media_source_changed', (data) => {
+      if (window.playerManager) window.playerManager.setMediaSource(data.media);
+      if (data.sysMessage && window.appUI) window.appUI.appendChatMessage(data.sysMessage);
+      if (window.appUI) window.appUI.showToast(`El Host cambió la película 🎬`, 'info');
+    });
+
+    // Usuarios
+    s.on('user_joined', (data) => {
+      if (window.appUI) {
+        window.appUI.updateUsersList(data.users);
+        if (data.sysMessage) window.appUI.appendChatMessage(data.sysMessage);
+        window.appUI.showToast(`${data.user.username} se unió 🎉`, 'success');
       }
+    });
+
+    s.on('user_left', (data) => {
+      if (window.appUI) {
+        window.appUI.updateUsersList(data.users);
+        if (data.sysMessage) window.appUI.appendChatMessage(data.sysMessage);
+        if (data.newHostId === s.id) {
+          this.isHost = true;
+          window.appUI.updateHostControlsView(true);
+          window.appUI.showToast('👑 Ahora eres el Host', 'info');
+        }
+      }
+    });
+
+    s.on('user_kicked', (data) => {
+      if (data.kickedSocketId === s.id) {
+        alert('Has sido expulsado de la sala por el Host.');
+        window.location.reload();
+      } else if (window.appUI) {
+        window.appUI.updateUsersList(data.users);
+        if (data.sysMessage) window.appUI.appendChatMessage(data.sysMessage);
+      }
+    });
+
+    // Voz
+    const handleVoiceUpdate = (data) => {
+      if (!data || !data.voiceMembers) return;
+      if (window.appUI) window.appUI.updateVoiceRoomState(data.voiceMembers, data.users || []);
+      if (window.webrtcVoiceManager) window.webrtcVoiceManager.syncVoicePeers(data.voiceMembers);
+    };
+    s.on('voice_room_updated', handleVoiceUpdate);
+    s.on('voice_members_updated', handleVoiceUpdate);
+
+    s.on('speaking_state_changed', (data) => {
+      if (window.appUI) window.appUI.setUserSpeakingIndicator(data.socketId, data.isSpeaking);
+    });
+
+    s.on('webrtc_signal', (data) => {
+      if (window.webrtcVoiceManager) window.webrtcVoiceManager.handleIncomingSignal(data.senderSocketId, data.signal);
+    });
+
+    // Chat
+    s.on('new_chat_message', (msg) => {
+      if (window.appUI) window.appUI.appendChatMessage(msg);
+    });
+
+    s.on('new_reaction', (data) => {
+      if (window.appUI) window.appUI.showFloatingReaction(data.emoji, data.user && data.user.username);
+    });
+
+    s.on('chat_message_reaction_updated', (data) => {
+      if (window.appUI) window.appUI.updateChatMessageReactions(data.msgId, data.reactions);
+    });
+  }
+
+  init() {
+    if (!this._initDone) this._initSocket();
+    else if (this.socket && !this.socket.connected) {
+      try { this.socket.connect(); } catch(e) {}
+    }
+  }
+
+  _ensureConnected() {
+    return new Promise((resolve, reject) => {
+      if (!this.socket) {
+        this._initSocket();
+        if (!this.socket) return reject('No se pudo inicializar la conexión al servidor.');
+      }
+
+      if (this.socket.connected) return resolve();
+
+      let resolved = false;
+      const timer = setTimeout(() => {
+        if (!resolved) { resolved = true; reject('No se pudo conectar al servidor. ¿El servidor está activo?'); }
+      }, 18000);
+
+      this.socket.once('connect', () => {
+        if (!resolved) { resolved = true; clearTimeout(timer); resolve(); }
+      });
+
+      try { this.socket.connect(); } catch(e) {}
+    });
+  }
+
+  _leaveCurrentRoomSilent() {
+    try {
+      if (window.webrtcVoiceManager) window.webrtcVoiceManager.leaveVoiceRoom();
       if (this.socket && this.currentRoomId) {
         this.socket.emit('leave_room', { roomId: this.currentRoomId });
       }
-    } catch (e) {
-      console.warn('Error al salir de sala previa:', e);
-    }
+    } catch(e) {}
     this.currentRoomId = null;
     this.currentUser = null;
     this.isHost = false;
   }
 
   createRoom(username, avatar) {
-    this.leaveCurrentRoom();
-    this.init();
-
-    return new Promise((resolve, reject) => {
-      if (!this.socket) {
-        return reject('Error: No se pudo conectar al servidor WebSocket.');
+    this._leaveCurrentRoomSilent();
+    return new Promise(async (resolve, reject) => {
+      try {
+        await this._ensureConnected();
+      } catch(e) {
+        return reject(e);
       }
 
       let done = false;
       const timer = setTimeout(() => {
-        if (!done) {
-          done = true;
-          reject('El servidor está tardando en responder. Intenta de nuevo en unos segundos.');
-        }
+        if (!done) { done = true; reject('El servidor tardó en responder. Intenta de nuevo.'); }
       }, 15000);
 
-      const doEmit = () => {
+      this.socket.emit('create_room', { username, avatar }, (response) => {
         if (done) return;
-        this.socket.emit('create_room', { username, avatar }, (response) => {
-          if (done) return;
-          done = true;
-          clearTimeout(timer);
-          if (response && response.success) {
-            this.currentRoomId = response.room.roomId;
-            this.currentUser = response.room.user;
-            this.isHost = true;
-            this.joinVoiceRoom();
-            resolve(response.room);
-          } else {
-            reject(response ? response.error : 'Error al crear la sala.');
-          }
-        });
-      };
-
-      if (this.socket.connected) {
-        doEmit();
-      } else {
-        if (window.appUI) window.appUI.showToast('Conectando al servidor...', 'info');
-        this.socket.once('connect', () => {
-          doEmit();
-        });
-        try { this.socket.connect(); } catch (e) {}
-      }
+        done = true;
+        clearTimeout(timer);
+        if (response && response.success) {
+          this.currentRoomId = response.room.roomId;
+          this.currentUser = response.room.user;
+          this.isHost = true;
+          this._emitJoinVoice();
+          resolve(response.room);
+        } else {
+          reject(response ? response.error : 'Error al crear la sala.');
+        }
+      });
     });
   }
 
   joinRoom(roomId, username, avatar) {
-    this.leaveCurrentRoom();
-    this.init();
-
-    return new Promise((resolve, reject) => {
-      if (!this.socket) {
-        return reject('Error: No se pudo conectar al servidor WebSocket.');
+    this._leaveCurrentRoomSilent();
+    return new Promise(async (resolve, reject) => {
+      try {
+        await this._ensureConnected();
+      } catch(e) {
+        return reject(e);
       }
+
+      const cleanId = String(roomId || '').trim().toUpperCase();
+      if (!cleanId) return reject('Introduce un código de sala.');
 
       let done = false;
       const timer = setTimeout(() => {
-        if (!done) {
-          done = true;
-          reject('El servidor está tardando en responder. Intenta de nuevo en unos segundos.');
-        }
+        if (!done) { done = true; reject('El servidor tardó en responder. Intenta de nuevo.'); }
       }, 15000);
 
-      const doEmit = () => {
+      this.socket.emit('join_room', { roomId: cleanId, username, avatar }, (response) => {
         if (done) return;
-        this.socket.emit('join_room', { roomId, username, avatar }, (response) => {
-          if (done) return;
-          done = true;
-          clearTimeout(timer);
-          if (response && response.success) {
-            this.currentRoomId = response.room.roomId;
-            this.currentUser = response.room.user;
-            this.isHost = response.room.user.isHost;
-            this.joinVoiceRoom();
-            resolve(response.room);
-          } else {
-            reject(response ? response.error : 'No se pudo unirse a la sala.');
-          }
-        });
-      };
-
-      if (this.socket.connected) {
-        doEmit();
-      } else {
-        if (window.appUI) window.appUI.showToast('Conectando al servidor...', 'info');
-        this.socket.once('connect', () => {
-          doEmit();
-        });
-        try { this.socket.connect(); } catch (e) {}
-      }
+        done = true;
+        clearTimeout(timer);
+        if (response && response.success) {
+          this.currentRoomId = response.room.roomId;
+          this.currentUser = response.room.user;
+          this.isHost = !!response.room.user.isHost;
+          this._emitJoinVoice();
+          resolve(response.room);
+        } else {
+          reject(response ? response.error : 'No se pudo unirse a la sala. Verifica el código.');
+        }
+      });
     });
+  }
+
+  _emitJoinVoice() {
+    if (this.currentRoomId && this.socket && this.socket.connected) {
+      this.socket.emit('join_voice_room', { roomId: this.currentRoomId });
+    }
+  }
+
+  joinVoiceRoom() { this._emitJoinVoice(); }
+
+  leaveVoiceRoom() {
+    if (this.currentRoomId && this.socket) {
+      this.socket.emit('leave_voice_room', { roomId: this.currentRoomId });
+    }
   }
 
   kickUser(targetSocketId) {
-    if (!this.currentRoomId || !this.isHost) return;
-    this.socket.emit('kick_user', {
-      roomId: this.currentRoomId,
-      targetSocketId
-    });
+    if (!this.currentRoomId || !this.isHost || !this.socket) return;
+    this.socket.emit('kick_user', { roomId: this.currentRoomId, targetSocketId });
   }
 
   requestHostSync() {
-    if (!this.currentRoomId) return;
+    if (!this.currentRoomId || !this.socket) return;
     this.socket.emit('request_host_sync', { roomId: this.currentRoomId });
   }
 
   emitMediaAction(action, currentTime) {
-    if (!this.currentRoomId) return;
-    this.socket.emit('media_action', {
-      roomId: this.currentRoomId,
-      action,
-      currentTime
-    });
+    if (!this.currentRoomId || !this.socket) return;
+    this.socket.emit('media_action', { roomId: this.currentRoomId, action, currentTime });
   }
 
   emitChangeMedia(mediaUrl) {
     return new Promise((resolve, reject) => {
-      if (!this.currentRoomId) return reject('No estás en ninguna sala.');
-      this.socket.emit('change_media_source', {
-        roomId: this.currentRoomId,
-        mediaUrl
-      }, (response) => {
+      if (!this.currentRoomId || !this.socket) return reject('No estás en ninguna sala.');
+      this.socket.emit('change_media_source', { roomId: this.currentRoomId, mediaUrl }, (response) => {
         if (response && response.success) resolve(response.media);
         else reject(response ? response.error : 'URL no válida.');
       });
@@ -283,52 +302,28 @@ class SocketManager {
   }
 
   sendChatMessage(text, gifUrl = null) {
-    if (!this.currentRoomId) return;
-    this.socket.emit('send_chat_message', {
-      roomId: this.currentRoomId,
-      text,
-      gifUrl
-    });
+    if (!this.currentRoomId || !this.socket) return;
+    this.socket.emit('send_chat_message', { roomId: this.currentRoomId, text, gifUrl });
   }
 
   sendReaction(emoji) {
-    if (!this.currentRoomId) return;
-    this.socket.emit('send_reaction', {
-      roomId: this.currentRoomId,
-      emoji
-    });
+    if (!this.currentRoomId || !this.socket) return;
+    this.socket.emit('send_reaction', { roomId: this.currentRoomId, emoji });
   }
 
   sendChatMessageReaction(msgId, emoji) {
-    if (!this.currentRoomId || !msgId) return;
-    this.socket.emit('react_to_chat_message', {
-      roomId: this.currentRoomId,
-      msgId,
-      emoji
-    });
-  }
-
-  joinVoiceRoom() {
-    if (!this.currentRoomId) return;
-    this.socket.emit('join_voice_room', { roomId: this.currentRoomId });
-  }
-
-  leaveVoiceRoom() {
-    if (!this.currentRoomId) return;
-    this.socket.emit('leave_voice_room', { roomId: this.currentRoomId });
+    if (!this.currentRoomId || !msgId || !this.socket) return;
+    this.socket.emit('react_to_chat_message', { roomId: this.currentRoomId, msgId, emoji });
   }
 
   sendWebRTCSignal(targetSocketId, signal) {
+    if (!this.socket) return;
     this.socket.emit('webrtc_signal', { targetSocketId, signal });
   }
 
   sendSpeakingState(isSpeaking, isMuted) {
-    if (!this.currentRoomId) return;
-    this.socket.emit('voice_speaking_state', {
-      roomId: this.currentRoomId,
-      isSpeaking,
-      isMuted
-    });
+    if (!this.currentRoomId || !this.socket) return;
+    this.socket.emit('voice_speaking_state', { roomId: this.currentRoomId, isSpeaking, isMuted });
   }
 }
 

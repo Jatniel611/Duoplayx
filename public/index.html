@@ -14,9 +14,8 @@
   <link rel="apple-touch-icon" href="icon.png">
   <link rel="stylesheet" href="css/style.css">
 
+  <!-- Socket.io: solo un archivo local, sin conflictos -->
   <script src="js/socket.io.min.js"></script>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
 </head>
@@ -87,6 +86,11 @@
             </div>
           </div>
 
+          <!-- Estado de conexión visible -->
+          <div id="connectionStatusLobby" style="text-align:center; font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
+            🔄 Conectando al servidor...
+          </div>
+
           <div class="lobby-actions">
             <button class="btn btn-primary btn-lg btn-block" id="btnCreateRoom">
               <span>✨ Crear Sala (Como Host 👑)</span>
@@ -114,6 +118,11 @@
           <span class="input-prefix">👑 CAMBIAR PELÍCULA:</span>
           <input type="text" id="inputMediaUrl" class="glass-input" placeholder="Pega URL de YouTube, Google Drive o enlace directo .mp4...">
           <button class="btn btn-primary" id="btnChangeMedia">Cargar</button>
+        </div>
+
+        <!-- AVISO PARA INVITADOS -->
+        <div class="guest-host-notice" id="guestHostNotice" style="display: none;">
+          <span>👀 Solo el Host puede cambiar la película. ¡Disfruta la experiencia!</span>
         </div>
 
         <!-- REPRODUCTOR ESTILO NETFLIX / RAVE CON OVERLAYS FLOTANTES -->
@@ -239,6 +248,12 @@
       <!-- SECCIÓN / PANEL LATERAL: CHAT Y PARTICIPANTES (AMIGOS) -->
       <section class="sidebar-section glass-card" id="sectionSidebar">
 
+        <!-- TABS DE NAVEGACIÓN -->
+        <div class="sidebar-tabs">
+          <button class="tab-btn active" data-tab="tabChat">💬 Chat</button>
+          <button class="tab-btn" data-tab="tabUsers">👥 Amigos</button>
+        </div>
+
         <!-- TAB CHAT -->
         <div class="tab-content active" id="tabChat">
           <div class="chat-messages" id="chatMessages">
@@ -362,9 +377,9 @@
 
   </div>
 
-  <script src="js/webrtc.js?v=1.0.9"></script>
-  <script src="js/player.js?v=1.0.9"></script>
-  <script src="js/socket.js?v=1.0.9"></script>
-  <script src="js/app.js?v=1.0.9"></script>
+  <script src="js/webrtc.js?v=1.2.0"></script>
+  <script src="js/player.js?v=1.2.0"></script>
+  <script src="js/socket.js?v=1.2.0"></script>
+  <script src="js/app.js?v=1.2.0"></script>
 </body>
 </html>
