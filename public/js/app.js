@@ -460,18 +460,7 @@ class AppUI {
       const isCssFS = document.body.classList.contains('fullscreen-active') || stage.classList.contains('fullscreen-active');
 
       if (isNativeFS || isCssFS) {
-        // SALIR DE PANTALLA COMPLETA
-        this._isExitingFullscreen = true;
-        document.body.classList.remove('fullscreen-active');
-        stage.classList.remove('fullscreen-active');
-
-        if (isNativeFS) {
-          if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        }
-
-        setTimeout(() => { this._isExitingFullscreen = false; }, 800);
-        this.handleFullscreenChange(false);
+        this.exitFullscreen();
       } else {
         // ENTRAR A PANTALLA COMPLETA
         this._isExitingFullscreen = false;
@@ -492,6 +481,62 @@ class AppUI {
         this.handleFullscreenChange(true);
       }
     });
+
+    // Interceptar Botón Físico / Gesto de Ir Atrás en Android
+    let backPressCount = 0;
+    let backPressTimer = null;
+
+    const handleAndroidBack = (e) => {
+      const stage = this.playerStage || document.getElementById('playerStage');
+      const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement) || (stage && stage.classList.contains('fullscreen-active')) || document.body.classList.contains('fullscreen-active');
+      if (isFS) {
+        if (e && e.preventDefault) e.preventDefault();
+        this.exitFullscreen();
+        return true;
+      }
+
+      if (this.emojiPickerPopover && this.emojiPickerPopover.style.display !== 'none' && this.emojiPickerPopover.style.display !== '') {
+        if (e && e.preventDefault) e.preventDefault();
+        this.emojiPickerPopover.style.display = 'none';
+        return true;
+      }
+      if (this.gifPickerPopover && this.gifPickerPopover.style.display !== 'none' && this.gifPickerPopover.style.display !== '') {
+        if (e && e.preventDefault) e.preventDefault();
+        this.gifPickerPopover.style.display = 'none';
+        return true;
+      }
+      if (this.floatingChatOverlay && this.floatingChatOverlay.style.display !== 'none' && this.floatingChatOverlay.style.display !== '') {
+        if (e && e.preventDefault) e.preventDefault();
+        this.floatingChatOverlay.style.display = 'none';
+        return true;
+      }
+      if (this.modalSwitchRoom && this.modalSwitchRoom.style.display !== 'none' && this.modalSwitchRoom.style.display !== '') {
+        if (e && e.preventDefault) e.preventDefault();
+        this.modalSwitchRoom.style.display = 'none';
+        return true;
+      }
+
+      if (document.body.classList.contains('in-room')) {
+        if (e && e.preventDefault) e.preventDefault();
+        backPressCount++;
+        if (backPressCount === 1) {
+          this.showToast('👈 Presiona Atrás de nuevo si deseas salir de la sala', 'info');
+          backPressTimer = setTimeout(() => { backPressCount = 0; }, 2500);
+        } else if (backPressCount >= 2) {
+          clearTimeout(backPressTimer);
+          backPressCount = 0;
+          this.leaveRoom();
+        }
+        return true;
+      }
+      return false;
+    };
+
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+      window.Capacitor.Plugins.App.addListener('backButton', () => {
+        handleAndroidBack(null);
+      });
+    }
 
     // Controles Personalizados del Host (Estilo Netflix)
     this.btnHostPlayPause.addEventListener('click', () => {
@@ -856,6 +901,22 @@ class AppUI {
     }
 
     return null;
+  }
+
+  exitFullscreen() {
+    const stage = this.playerStage || document.getElementById('playerStage');
+    this._isExitingFullscreen = true;
+    document.body.classList.remove('fullscreen-active');
+    if (stage) stage.classList.remove('fullscreen-active');
+
+    const isNativeFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullscreenElement);
+    if (isNativeFS) {
+      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+
+    setTimeout(() => { this._isExitingFullscreen = false; }, 800);
+    this.handleFullscreenChange(false);
   }
 
   handleFullscreenChange(forceState = null) {
