@@ -2253,13 +2253,15 @@ body.in-room .mobile-nav-bar {
     font-size: 0.85rem;
   }
   .yt-vol-slider {
-    width: 75px;
+    width: 85px;
+    height: 6px;
+    cursor: pointer;
   }
 }
 
 /* ─── CONTROLES DEL REPRODUCTOR EN MÓVIL ─── */
 @media (max-width: 768px) {
-  .yt-vol-slider { width: 50px !important; }
+  .yt-vol-slider { width: 65px !important; height: 6px !important; }
   .yt-time-display { font-size: 0.7rem !important; }
   .yt-btn-ctrl { padding: 4px 6px !important; }
   .yt-play-btn { width: 34px !important; height: 34px !important; }

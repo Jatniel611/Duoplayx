@@ -232,6 +232,42 @@ app.get('/api/gdrive-stream/:fileId', async (req, res) => {
   }
 });
 
+// Endpoint proxy: reenvía bytes de Pixeldrain con soporte de Range headers (seeking y streaming fluido para archivos de cualquier tamaño)
+app.get('/api/pixeldrain-stream/:fileId', async (req, res) => {
+  const fileId = req.params.fileId;
+  if (!fileId) return res.status(400).json({ error: 'File ID required' });
+
+  const targetUrl = `https://pixeldrain.com/api/file/${fileId}`;
+  const reqHeaders = { 'User-Agent': 'Mozilla/5.0' };
+  if (req.headers.range) reqHeaders['Range'] = req.headers.range;
+
+  console.log(`[Pixeldrain Stream] fileId=${fileId} ${req.headers.range || 'no range'}`);
+
+  try {
+    const pxRes = await makeHttpsRequest(targetUrl, reqHeaders);
+    const status = pxRes.statusCode;
+    const ct = pxRes.headers['content-type'] || 'video/mp4';
+
+    const resHeaders = {
+      'Content-Type': ct,
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache'
+    };
+
+    if (pxRes.headers['content-length']) resHeaders['Content-Length'] = pxRes.headers['content-length'];
+    if (pxRes.headers['content-range'])  resHeaders['Content-Range']  = pxRes.headers['content-range'];
+
+    res.writeHead(status === 206 ? 206 : (status === 200 ? 200 : status), resHeaders);
+    pxRes.pipe(res);
+
+    req.on('close', () => pxRes.destroy());
+  } catch (err) {
+    console.error('[Pixeldrain Stream Error]:', err.message);
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // EXTRACTOR SEGURIZADO DE HLS / M3U8 Y PROXY DE STREAMING
 // ─────────────────────────────────────────────────────────────────────────────
@@ -443,13 +479,12 @@ app.post('/api/resolve-media', async (req, res) => {
       return res.json({ type: 'youtube', url: cleanUrl, videoId: videoId });
     }
 
-    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.)
+    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.) - 100% Directo del cliente (0% servidor)
     if (cleanUrl.includes('pixeldrain.com')) {
       const pxMatch = cleanUrl.match(/pixeldrain\.com\/(?:u|api\/file|l)\/([a-zA-Z0-9_-]+)/i);
       if (pxMatch && pxMatch[1]) {
-        cleanUrl = `https://pixeldrain.com/api/file/${pxMatch[1]}`;
+        return res.json({ type: 'mp4', url: `https://pixeldrain.com/api/file/${pxMatch[1]}` });
       }
-      return res.json({ type: 'mp4', url: cleanUrl });
     }
 
     // 4. Enlaces .m3u8 directos

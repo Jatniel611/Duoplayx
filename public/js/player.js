@@ -474,18 +474,52 @@ class PlayerManager {
   }
 
   // ─── Volumen ──────────────────────────────────────────────────────────────
+  _initAudioGainNode(videoElement) {
+    if (!videoElement || videoElement._gainNode) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const audioCtx = new AudioCtx();
+      const source = audioCtx.createMediaElementSource(videoElement);
+      const gainNode = audioCtx.createGain();
+      source.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      videoElement._gainNode = gainNode;
+      videoElement._audioCtx = audioCtx;
+    } catch(e) {
+      console.warn('[AudioGain] Error creando gain node:', e.message);
+    }
+  }
+
   setLocalVolume(vol) {
-    this.localVolume = Math.max(0, Math.min(100, vol));
-    this.isMuted = this.localVolume === 0;
+    const clampedVol = Math.max(0, Math.min(150, parseInt(vol) || 0));
+    this.localVolume = clampedVol;
 
     if (this.currentType === 'youtube' && this.ytPlayer && this.isYTReady) {
       if (typeof this.ytPlayer.setVolume === 'function') {
-        this.ytPlayer.setVolume(this.localVolume);
+        this.ytPlayer.setVolume(Math.min(100, this.localVolume));
         this.isMuted ? this.ytPlayer.mute() : this.ytPlayer.unMute();
       }
     }
-    if (this.mp4Video)    { this.mp4Video.volume    = this.localVolume / 100; this.mp4Video.muted    = this.isMuted; }
-    if (this.gdriveVideo) { this.gdriveVideo.volume = this.localVolume / 100; this.gdriveVideo.muted = this.isMuted; }
+
+    const setVidVol = (vid) => {
+      if (!vid) return;
+      vid.muted = this.isMuted;
+      if (this.localVolume <= 100) {
+        vid.volume = this.localVolume / 100;
+        if (vid._gainNode) vid._gainNode.gain.value = 1.0;
+      } else {
+        vid.volume = 1.0;
+        this._initAudioGainNode(vid);
+        if (vid._gainNode) vid._gainNode.gain.value = this.localVolume / 100;
+        if (vid._audioCtx && vid._audioCtx.state === 'suspended') {
+          vid._audioCtx.resume().catch(() => {});
+        }
+      }
+    };
+
+    setVidVol(this.mp4Video);
+    setVidVol(this.gdriveVideo);
   }
 
   toggleLocalMute() {

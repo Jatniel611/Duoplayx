@@ -897,7 +897,7 @@ class AppUI {
       return { type: 'gdrive', url: `/api/gdrive-stream/${fileId}`, fileId: fileId, isGDrive: true };
     }
 
-    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.)
+    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.) - 100% Directo del cliente (0% servidor)
     const pixeldrainMatch = url.match(/pixeldrain\.com\/(?:u|api\/file|l)\/([a-zA-Z0-9_-]+)/i);
     if (pixeldrainMatch && pixeldrainMatch[1]) {
       const fileId = pixeldrainMatch[1];
