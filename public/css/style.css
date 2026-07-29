@@ -1399,11 +1399,11 @@ body.fullscreen-active .player-section {
   }
 }
 
-/* LANDSCAPE LAYOUT (ESTILO IMAGEN 2: 3-COLUMN HORIZONTAL GRID) */
+/* LANDSCAPE LAYOUT (2-COLUMNAS ÉPICO: REPRODUCTOR 67% + CHAT/AMIGOS 33%) */
 @media (orientation: landscape) and (min-width: 600px) {
   #mainRoom {
     display: grid !important;
-    grid-template-columns: 46% 25% 29% !important;
+    grid-template-columns: 67% 33% !important;
     gap: 10px !important;
     height: calc(100vh - 58px) !important;
     overflow: hidden !important;
@@ -1412,11 +1412,6 @@ body.fullscreen-active .player-section {
   }
 
   .player-section {
-    overflow-y: auto !important;
-    height: 100% !important;
-  }
-
-  .center-info-panel {
     overflow-y: auto !important;
     height: 100% !important;
   }

@@ -1049,34 +1049,25 @@ class AppUI {
   }
 
   setActiveMobileTab(mode) {
-    if (!this.isMobileOrCompactView()) return;
+    if (this.btnNavChat) this.btnNavChat.classList.remove('active');
+    if (this.btnNavUsers) this.btnNavUsers.classList.remove('active');
 
-    this.btnNavPlayer.classList.remove('active');
-    this.btnNavChat.classList.remove('active');
-    this.btnNavUsers.classList.remove('active');
-
-    if (mode === 'player') {
-      this.sectionPlayer.style.display = 'flex';
-      this.sectionSidebar.style.display = 'none';
-      this.btnNavPlayer.classList.add('active');
-    } else if (mode === 'chat') {
-      this.sectionPlayer.style.display = 'none';
-      this.sectionSidebar.style.display = 'flex';
-      this.btnNavChat.classList.add('active');
-
+    if (mode === 'chat') {
+      if (this.btnNavChat) this.btnNavChat.classList.add('active');
       document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      document.querySelector('[data-tab="tabChat"]').classList.add('active');
-      document.getElementById('tabChat').classList.add('active');
+      const tabChatBtn = document.querySelector('[data-tab="tabChat"]');
+      const tabChatContent = document.getElementById('tabChat');
+      if (tabChatBtn) tabChatBtn.classList.add('active');
+      if (tabChatContent) tabChatContent.classList.add('active');
     } else if (mode === 'users') {
-      this.sectionPlayer.style.display = 'none';
-      this.sectionSidebar.style.display = 'flex';
-      this.btnNavUsers.classList.add('active');
-
+      if (this.btnNavUsers) this.btnNavUsers.classList.add('active');
       document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      document.querySelector('[data-tab="tabUsers"]').classList.add('active');
-      document.getElementById('tabUsers').classList.add('active');
+      const tabUsersBtn = document.querySelector('[data-tab="tabUsers"]');
+      const tabUsersContent = document.getElementById('tabUsers');
+      if (tabUsersBtn) tabUsersBtn.classList.add('active');
+      if (tabUsersContent) tabUsersContent.classList.add('active');
     }
   }
 

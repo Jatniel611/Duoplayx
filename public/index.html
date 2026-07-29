@@ -248,41 +248,20 @@
         </div>
       </section>
 
-      <!-- SECCIÓN / PANEL 2: PARTICIPANTES Y AVISOS -->
-      <section class="center-info-panel" id="centerInfoPanel">
-        
-        <!-- CARD DE PARTICIPANTES EN SALA DE VOZ -->
-        <div class="participants-card glass-card">
-          <div class="card-title">Participantes (<span id="userCountInline">0</span>)</div>
-          <div class="participants-avatars-row" id="voiceMembersGrid">
-            <!-- Avatares redondos con halos verdes neón -->
-          </div>
-        </div>
-
-        <!-- BANNER DE AVISO (ESTILO RAVE BLUEPRINT) -->
-        <div class="processing-notice-card glass-card" id="noticeBannerCard">
-          <div class="notice-left">
-            <span class="notice-info-icon">ℹ️</span>
-            <span>El video está siendo procesado. Volve más tarde para continuar viendo.</span>
-          </div>
-          <button class="btn btn-sm btn-purple-pill" id="btnDismissNotice">Entendido</button>
-        </div>
-
-      </section>
-
-      <!-- SECCIÓN / PANEL 3: CHAT -->
+      <!-- SECCIÓN / PANEL LATERAL: CHAT Y PARTICIPANTES (AMIGOS) -->
       <section class="sidebar-section glass-card" id="sectionSidebar">
         <div class="sidebar-tabs">
           <button class="tab-btn active" data-tab="tabChat">💬 Chat en Vivo</button>
+          <button class="tab-btn" data-tab="tabUsers">👥 Participantes (<span id="userCount">0</span>)</button>
         </div>
 
-        <!-- MENSAJE FIJADO (ESTILO RAVE BLUEPRINT) -->
+        <!-- MENSAJE FIJADO -->
         <div class="pinned-notice-banner" id="pinnedNoticeBanner">
           <div class="pinned-title">📌 Mensaje fijado por <strong>JATXPLAY 👑</strong></div>
           <div class="pinned-text">¡Bienvenidos a la sala! Por favor, respeten a los demás y disfruten de la película 🍿</div>
         </div>
 
-        <!-- LISTA DE MENSAJES DEL CHAT -->
+        <!-- TAB CHAT -->
         <div class="tab-content active" id="tabChat">
           <div class="chat-messages" id="chatMessages">
             <div class="chat-welcome-notice">
@@ -306,7 +285,7 @@
             <div class="emoji-grid" id="emojiGrid"></div>
           </div>
           
-          <!-- INPUT DEL CHAT (ESTILO RAVE BLUEPRINT) -->
+          <!-- INPUT DEL CHAT -->
           <form class="chat-input-form" id="chatForm">
             <input type="text" id="inputChatMessage" class="glass-input" placeholder="Escribe un mensaje..." autocomplete="off">
             <button type="button" class="btn btn-icon btn-emoji-trigger" id="btnOpenEmojiPicker" title="Insertar Emoji">
@@ -317,6 +296,35 @@
             </button>
           </form>
         </div>
+
+        <!-- TAB PARTICIPANTES / AMIGOS & SALA DE VOZ -->
+        <div class="tab-content" id="tabUsers">
+          <div class="voice-room-panel glass-card" id="voiceRoomPanel">
+            <div class="voice-panel-header">
+              <div class="voice-panel-title">
+                <span class="voice-live-dot"></span>
+                <strong>🎙️ Canal de Voz en Vivo</strong>
+              </div>
+              <button class="btn btn-sm btn-secondary" id="btnToggleMic">
+                <span id="voiceMicStateIcon">🎙️</span> <span id="voiceMicStateLabel">Encender Micrófono</span>
+              </button>
+            </div>
+
+            <div class="mic-select-row" id="micSelectRow">
+              <label for="selectMicDevice" class="mic-label">🎙️ Dispositivo:</label>
+              <select id="selectMicDevice" class="glass-input mic-select" title="Seleccionar Micrófono">
+                <option value="">Cargando micrófonos...</option>
+              </select>
+            </div>
+
+            <div class="voice-members-grid" id="voiceMembersGrid">
+              <div class="voice-empty-state">Canal de voz activo. Presiona Encender Micrófono para hablar.</div>
+            </div>
+          </div>
+
+          <div class="users-list" id="usersList"></div>
+        </div>
+
       </section>
 
     </main>

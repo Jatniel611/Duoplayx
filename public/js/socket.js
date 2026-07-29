@@ -129,7 +129,24 @@ class SocketManager {
     });
   }
 
+  leaveCurrentRoom() {
+    try {
+      if (window.webrtcVoiceManager) {
+        window.webrtcVoiceManager.leaveVoiceRoom();
+      }
+      if (this.socket && this.currentRoomId) {
+        this.socket.emit('leave_room', { roomId: this.currentRoomId });
+      }
+    } catch (e) {
+      console.warn('Error al salir de sala previa:', e);
+    }
+    this.currentRoomId = null;
+    this.currentUser = null;
+    this.isHost = false;
+  }
+
   createRoom(username, avatar) {
+    this.leaveCurrentRoom();
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
         if (window.appUI) window.appUI.showToast('Conectando al servidor... Reintentando en un momento.', 'info');
@@ -160,6 +177,7 @@ class SocketManager {
   }
 
   joinRoom(roomId, username, avatar) {
+    this.leaveCurrentRoom();
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
         if (window.appUI) window.appUI.showToast('Conectando al servidor... Reintentando en un momento.', 'info');
