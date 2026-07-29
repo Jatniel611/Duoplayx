@@ -24,7 +24,7 @@ class RoomManager {
     if (!mediaInput) return null;
 
     if (typeof mediaInput === 'object') {
-      return mediaInput;
+      if (mediaInput.url) return mediaInput;
     }
 
     if (typeof mediaInput !== 'string') return null;
@@ -38,7 +38,7 @@ class RoomManager {
       const fileId = gdriveMatch[1];
       return {
         type: 'gdrive',
-        url: `/api/gdrive-stream/${fileId}`,
+        url: `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
         rawUrl: url,
         fileId: fileId,
         isGDrive: true
@@ -55,11 +55,10 @@ class RoomManager {
 
     // 3. Pixeldrain (convertir /u/ID a /api/file/ID)
     if (url.includes('pixeldrain.com')) {
-      if (url.includes('/u/')) {
-        const fileId = url.split('/u/')[1].split('/')[0].split('?')[0];
-        url = `https://pixeldrain.com/api/file/${fileId}`;
+      const pxMatch = url.match(/pixeldrain\.com\/(?:u|api\/file|l)\/([a-zA-Z0-9_-]+)/i);
+      if (pxMatch && pxMatch[1]) {
+        return { type: 'mp4', url: `https://pixeldrain.com/api/file/${pxMatch[1]}` };
       }
-      return { type: 'mp4', url: url };
     }
 
     // 4. Enlaces HLS .m3u8
