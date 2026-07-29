@@ -907,19 +907,28 @@ class AppUI {
       return { type: 'youtube', url: url, videoId: ytMatch[1] };
     }
 
+    // Comprobar si tenemos servidor local activo (App de Windows en localhost:3000)
+    const isLocalServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
     // 2. Google Drive (Formatos /file/d/ID, /open?id=ID, /uc?id=ID, etc.)
     const gdriveMatch = url.match(/(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?.*id=)([a-zA-Z0-9_-]{20,})/i) ||
                         url.match(/google\.com\/.*(?:file\/d\/|[?&]id=)([a-zA-Z0-9_-]{20,})/i);
     if (gdriveMatch && gdriveMatch[1]) {
       const fileId = gdriveMatch[1];
-      return { type: 'gdrive', url: `/api/gdrive-stream/${fileId}`, fileId: fileId, isGDrive: true };
+      const streamUrl = isLocalServer 
+        ? `http://localhost:3000/api/gdrive-stream/${fileId}`
+        : `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+      return { type: 'gdrive', url: streamUrl, fileId: fileId, isGDrive: true };
     }
 
-    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.) - Streaming proxy infalible
+    // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.)
     const pixeldrainMatch = url.match(/pixeldrain\.com\/(?:u|api\/file|l)\/([a-zA-Z0-9_-]+)/i);
     if (pixeldrainMatch && pixeldrainMatch[1]) {
       const fileId = pixeldrainMatch[1];
-      return { type: 'mp4', url: `/api/pixeldrain-stream/${fileId}` };
+      const streamUrl = isLocalServer
+        ? `http://localhost:3000/api/pixeldrain-stream/${fileId}`
+        : `https://pixeldrain.com/api/file/${fileId}`;
+      return { type: 'mp4', url: streamUrl };
     }
 
     // 4. Enlaces .m3u8 directos

@@ -2401,15 +2401,30 @@ body.in-room .mobile-nav-bar {
 
 /* ─── PISTA DE MENSAJES EN FILA INDIA CONTINUA ESTILO RAVE ─── */
 .fullscreen-ticker-wrapper {
-  position: absolute;
-  bottom: 64px;
-  left: 0;
-  width: 100%;
-  height: 44px;
-  pointer-events: none;
-  z-index: 115;
-  overflow: hidden;
-  box-sizing: border-box;
+  position: absolute !important;
+  bottom: 64px !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 44px !important;
+  pointer-events: none !important;
+  z-index: 999999 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+:fullscreen .fullscreen-ticker-wrapper,
+:-webkit-full-screen .fullscreen-ticker-wrapper,
+:-moz-full-screen .fullscreen-ticker-wrapper,
+.fullscreen-active .fullscreen-ticker-wrapper,
+.idle-hidden .fullscreen-ticker-wrapper,
+.fullscreen-ticker-wrapper.idle-hidden {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  pointer-events: none !important;
 }
 
 .fullscreen-ticker-track {
