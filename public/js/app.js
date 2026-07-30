@@ -931,12 +931,33 @@ class AppUI {
       return { type: 'mp4', url: streamUrl };
     }
 
-    // 4. Enlaces .m3u8 directos
+    // 4. Dropbox (Convertir enlaces compartidos a MP4 directo con ?raw=1)
+    if (url.includes('dropbox.com')) {
+      let directDropbox = url.replace(/\?dl=[01]/, '').replace(/&dl=[01]/, '');
+      directDropbox += directDropbox.includes('?') ? '&raw=1' : '?raw=1';
+      return { type: 'mp4', url: directDropbox };
+    }
+
+    // 5. MediaFire
+    if (url.includes('mediafire.com')) {
+      const mfDirect = url.match(/(https?:\/\/download\d+\.mediafire\.com\/[^\s"'\?#]+\.(?:mp4|mkv|webm|avi|mov))/i);
+      if (mfDirect && mfDirect[1]) {
+        return { type: 'mp4', url: mfDirect[1] };
+      }
+    }
+
+    // 6. TeraBox (terabox.com, teraboxapp.com, 1024tera.com, freeterabox.com, terabox.app, mirrobox.com, etc.)
+    const teraboxMatch = url.match(/(?:terabox\.com|teraboxapp\.com|1024tera\.com|freeterabox\.com|terabox\.app|mirrobox\.com|nebulabox\.com)\/s\/([a-zA-Z0-9_-]+)/i);
+    if (teraboxMatch && teraboxMatch[1]) {
+      return { type: 'terabox', url: url, surl: teraboxMatch[1], isTerabox: true };
+    }
+
+    // 7. Enlaces .m3u8 directos
     if (url.includes('.m3u8')) {
       return { type: 'hls', url: url };
     }
 
-    // 5. Archivos de video directo (.mp4, .mkv, .webm, .mov, etc.)
+    // 8. Archivos de video directo (.mp4, .mkv, .webm, .mov, etc.)
     if (url.match(/\.(mp4|mkv|webm|ogv|mov|m4v|avi)(\?.*)?$/i)) {
       return { type: 'mp4', url: url };
     }

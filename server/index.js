@@ -557,17 +557,38 @@ app.post('/api/resolve-media', async (req, res) => {
       }
     }
 
-    // 4. Enlaces .m3u8 directos
+    // 4. Dropbox (Convertir a raw=1)
+    if (cleanUrl.includes('dropbox.com')) {
+      let directDropbox = cleanUrl.replace(/\?dl=[01]/, '').replace(/&dl=[01]/, '');
+      directDropbox += directDropbox.includes('?') ? '&raw=1' : '?raw=1';
+      return res.json({ type: 'mp4', url: directDropbox });
+    }
+
+    // 5. MediaFire (Extracción rápida)
+    if (cleanUrl.includes('mediafire.com')) {
+      const mfDirect = cleanUrl.match(/(https?:\/\/download\d+\.mediafire\.com\/[^\s"'\?#]+\.(?:mp4|mkv|webm|avi|mov))/i);
+      if (mfDirect && mfDirect[1]) {
+        return res.json({ type: 'mp4', url: mfDirect[1] });
+      }
+    }
+
+    // 6. TeraBox
+    const teraboxMatch = cleanUrl.match(/(?:terabox\.com|teraboxapp\.com|1024tera\.com|freeterabox\.com|terabox\.app|mirrobox\.com|nebulabox\.com)\/s\/([a-zA-Z0-9_-]+)/i);
+    if (teraboxMatch && teraboxMatch[1]) {
+      return res.json({ type: 'terabox', url: cleanUrl, surl: teraboxMatch[1], isTerabox: true });
+    }
+
+    // 7. Enlaces .m3u8 directos
     if (cleanUrl.includes('.m3u8')) {
       return res.json({ type: 'hls', url: cleanUrl });
     }
 
-    // 5. Video directo
+    // 8. Video directo
     if (cleanUrl.match(/\.(mp4|mkv|webm|ogv|mov)(\?.*)?$/i)) {
       return res.json({ type: 'mp4', url: cleanUrl });
     }
 
-    // 6. Extractor HLS específico para sitios embed
+    // 9. Extractor HLS específico para sitios embed (MediaFire / TeraBox embeds / Vimeus)
     const resolved = await extractHlsFromEmbed(cleanUrl);
     return res.json(resolved);
 
