@@ -947,19 +947,25 @@ class AppUI {
     }
 
     // 6. TeraBox (terabox.com, teraboxapp.com, 1024tera.com, freeterabox.com, terabox.app, mirrobox.com, etc.)
-    const teraboxMatch = url.match(/(?:terabox\.com|teraboxapp\.com|1024tera\.com|freeterabox\.com|terabox\.app|mirrobox\.com|nebulabox\.com)\/s\/1?([a-zA-Z0-9_-]+)/i);
+    const teraboxMatch = url.match(/(?:terabox\.com|teraboxapp\.com|1024tera\.com|freeterabox\.com|terabox\.app|mirrobox\.com|nebulabox\.com)\/s\/1?([a-zA-Z0-9_-]+)/i) || url.match(/surl=1?([a-zA-Z0-9_-]+)/i);
     if (teraboxMatch && teraboxMatch[1]) {
       const surl = teraboxMatch[1];
       const embedUrl = `https://www.terabox.com/sharing/embed?surl=${surl}`;
       return { type: 'mp4', url: embedUrl, surl: surl, isTerabox: true };
     }
 
-    // 7. Enlaces .m3u8 directos
+    // 7. GoFile (gofile.io/d/ID)
+    const gofileMatch = url.match(/gofile\.io\/(?:d|c)\/([a-zA-Z0-9_-]+)/i);
+    if (gofileMatch && gofileMatch[1]) {
+      return { type: 'gofile', url: url, contentId: gofileMatch[1], isGoFile: true };
+    }
+
+    // 8. Enlaces .m3u8 directos
     if (url.includes('.m3u8')) {
       return { type: 'hls', url: url };
     }
 
-    // 8. Archivos de video directo (.mp4, .mkv, .webm, .mov, etc.)
+    // 9. Archivos de video directo (.mp4, .mkv, .webm, .mov, etc.)
     if (url.match(/\.(mp4|mkv|webm|ogv|mov|m4v|avi)(\?.*)?$/i)) {
       return { type: 'mp4', url: url };
     }

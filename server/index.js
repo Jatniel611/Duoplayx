@@ -584,13 +584,12 @@ app.post('/api/resolve-media', async (req, res) => {
       }
     }
 
-    // 6. TeraBox (Extracción automática 2-pasos con jsToken)
+    // 6. TeraBox (Extracción de dlink o embed streaming)
     if (cleanUrl.includes('terabox') || cleanUrl.includes('1024tera') || cleanUrl.includes('mirrobox') || cleanUrl.includes('nebulabox') || cleanUrl.includes('freeterabox')) {
       const surlMatch = cleanUrl.match(/\/s\/1?([a-zA-Z0-9_-]+)/i) || cleanUrl.match(/surl=1?([a-zA-Z0-9_-]+)/i);
       if (surlMatch && surlMatch[1]) {
         const surl = surlMatch[1];
         try {
-          // Paso 1: Obtener jsToken y cookies de la página de embed
           const embedUrl = `https://www.terabox.com/sharing/embed?surl=${surl}`;
           const resHtml = await fetch(embedUrl, {
             headers: {
@@ -602,31 +601,73 @@ app.post('/api/resolve-media', async (req, res) => {
           const jsToken = tokenMatch && tokenMatch[1] ? tokenMatch[1] : '';
           const cookies = resHtml.headers.get('set-cookie') || '';
 
-          // Paso 2: Consultar la API con jsToken
-          const apiUrl = `https://www.terabox.com/api/shorturlinfo?shorturl=${surl}&root=1&jsToken=${jsToken}`;
-          const resApi = await fetch(apiUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-              'Cookie': cookies,
-              'Referer': embedUrl
-            }
-          });
-
-          if (resApi.ok) {
-            const json = await resApi.json();
-            if (json && json.list && json.list.length > 0) {
-              const videoFile = json.list.find(f => f.category == 1 || (f.server_filename && f.server_filename.match(/\.(mp4|mkv|webm|mov|avi)/i))) || json.list[0];
-              if (videoFile && videoFile.dlink) {
-                console.log(`[TeraBox Extractor] Enlace dlink extraído con éxito: ${videoFile.dlink.substring(0, 60)}...`);
-                return res.json({ type: 'mp4', url: videoFile.dlink });
+          if (jsToken) {
+            const apiUrl = `https://www.terabox.com/api/shorturlinfo?shorturl=${surl}&root=1&jsToken=${jsToken}`;
+            const resApi = await fetch(apiUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Cookie': cookies,
+                'Referer': embedUrl
+              }
+            });
+            if (resApi.ok) {
+              const json = await resApi.json();
+              if (json && json.list && json.list.length > 0) {
+                const videoFile = json.list.find(f => f.category == 1 || (f.server_filename && f.server_filename.match(/\.(mp4|mkv|webm|mov|avi)/i))) || json.list[0];
+                if (videoFile && videoFile.dlink) {
+                  console.log(`[TeraBox Extractor] Enlace dlink extraído con éxito: ${videoFile.dlink.substring(0, 60)}...`);
+                  return res.json({ type: 'mp4', url: videoFile.dlink });
+                }
               }
             }
           }
-          // Fallback a reproductor embebido de TeraBox si la API no entrega dlink directo
           return res.json({ type: 'mp4', url: embedUrl });
         } catch (eTera) {
           console.warn('Error al extraer TeraBox:', eTera.message);
           return res.json({ type: 'mp4', url: `https://www.terabox.com/sharing/embed?surl=${surl}` });
+        }
+      }
+    }
+
+    // 7. GoFile (Extracción mediante API pública de GoFile)
+    if (cleanUrl.includes('gofile.io')) {
+      const gfMatch = cleanUrl.match(/gofile\.io\/(?:d|c)\/([a-zA-Z0-9_-]+)/i);
+      if (gfMatch && gfMatch[1]) {
+        const contentId = gfMatch[1];
+        try {
+          // Obtener token de invitado de GoFile
+          const resAcc = await fetch('https://api.gofile.io/accounts', {
+            method: 'POST',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Content-Type': 'application/json'
+            }
+          });
+          const jsonAcc = await resAcc.json();
+          const token = (jsonAcc && jsonAcc.data) ? jsonAcc.data.token : '';
+
+          // Consultar contenido del archivo en GoFile
+          const resCont = await fetch(`https://api.gofile.io/contents/${contentId}?wt=40149b262358`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+            }
+          });
+          const jsonCont = await resCont.json();
+          if (jsonCont && jsonCont.status === 'ok' && jsonCont.data) {
+            const children = jsonCont.data.children || jsonCont.data.contents || {};
+            const keys = Object.keys(children);
+            for (const k of keys) {
+              const item = children[k];
+              if (item && (item.link || item.directLink)) {
+                const streamUrl = item.directLink || item.link;
+                console.log(`[GoFile Extractor] Stream extraído: ${streamUrl.substring(0, 60)}...`);
+                return res.json({ type: 'mp4', url: streamUrl });
+              }
+            }
+          }
+        } catch (eGf) {
+          console.warn('Error al extraer GoFile:', eGf.message);
         }
       }
     }
