@@ -564,18 +564,52 @@ app.post('/api/resolve-media', async (req, res) => {
       return res.json({ type: 'mp4', url: directDropbox });
     }
 
-    // 5. MediaFire (Extracción rápida)
+    // 5. MediaFire (Extracción del botón #downloadButton)
     if (cleanUrl.includes('mediafire.com')) {
-      const mfDirect = cleanUrl.match(/(https?:\/\/download\d+\.mediafire\.com\/[^\s"'\?#]+\.(?:mp4|mkv|webm|avi|mov))/i);
+      const mfDirect = cleanUrl.match(/(https?:\/\/download\d+\.mediafire\.com\/[^\s"'\?#]+)/i);
       if (mfDirect && mfDirect[1]) {
         return res.json({ type: 'mp4', url: mfDirect[1] });
       }
+      try {
+        const html = await safeFetchHtml(cleanUrl);
+        const btnMatch = html.match(/href=["'](https?:\/\/download\d+\.mediafire\.com\/[^"']+)["']/i) ||
+                         html.match(/id=["']downloadButton["'][^>]*href=["']([^"']+)["']/i) ||
+                         html.match(/aria-label=["']Download file["'][^>]*href=["']([^"']+)["']/i);
+        if (btnMatch && btnMatch[1]) {
+          console.log(`[MediaFire Extractor] Enlace directo extraído: ${btnMatch[1].substring(0, 60)}...`);
+          return res.json({ type: 'mp4', url: btnMatch[1] });
+        }
+      } catch (eMf) {
+        console.warn('Error al extraer MediaFire:', eMf.message);
+      }
     }
 
-    // 6. TeraBox
-    const teraboxMatch = cleanUrl.match(/(?:terabox\.com|teraboxapp\.com|1024tera\.com|freeterabox\.com|terabox\.app|mirrobox\.com|nebulabox\.com)\/s\/([a-zA-Z0-9_-]+)/i);
-    if (teraboxMatch && teraboxMatch[1]) {
-      return res.json({ type: 'terabox', url: cleanUrl, surl: teraboxMatch[1], isTerabox: true });
+    // 6. TeraBox (Extracción automática de API /shorturlinfo)
+    if (cleanUrl.includes('terabox') || cleanUrl.includes('1024tera') || cleanUrl.includes('mirrobox') || cleanUrl.includes('nebulabox') || cleanUrl.includes('freeterabox')) {
+      const surlMatch = cleanUrl.match(/\/s\/1?([a-zA-Z0-9_-]+)/i);
+      if (surlMatch && surlMatch[1]) {
+        const surl = surlMatch[1];
+        try {
+          const apiUrl = `https://www.terabox.com/api/shorturlinfo?shorturl=${surl}&root=1`;
+          const resApi = await fetch(apiUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+            }
+          });
+          if (resApi.ok) {
+            const json = await resApi.json();
+            if (json && json.list && json.list.length > 0) {
+              const videoFile = json.list.find(f => f.category == 1 || (f.server_filename && f.server_filename.match(/\.(mp4|mkv|webm|mov|avi)/i))) || json.list[0];
+              if (videoFile && videoFile.dlink) {
+                console.log(`[TeraBox Extractor] Enlace dlink extraído: ${videoFile.dlink.substring(0, 60)}...`);
+                return res.json({ type: 'mp4', url: videoFile.dlink });
+              }
+            }
+          }
+        } catch (eTera) {
+          console.warn('Error al extraer TeraBox:', eTera.message);
+        }
+      }
     }
 
     // 7. Enlaces .m3u8 directos
