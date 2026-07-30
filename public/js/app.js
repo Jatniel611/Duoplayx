@@ -947,9 +947,11 @@ class AppUI {
     }
 
     // 6. TeraBox (terabox.com, teraboxapp.com, 1024tera.com, freeterabox.com, terabox.app, mirrobox.com, etc.)
-    const teraboxMatch = url.match(/(?:terabox\.com|teraboxapp\.com|1024tera\.com|freeterabox\.com|terabox\.app|mirrobox\.com|nebulabox\.com)\/s\/([a-zA-Z0-9_-]+)/i);
+    const teraboxMatch = url.match(/(?:terabox\.com|teraboxapp\.com|1024tera\.com|freeterabox\.com|terabox\.app|mirrobox\.com|nebulabox\.com)\/s\/1?([a-zA-Z0-9_-]+)/i);
     if (teraboxMatch && teraboxMatch[1]) {
-      return { type: 'terabox', url: url, surl: teraboxMatch[1], isTerabox: true };
+      const surl = teraboxMatch[1];
+      const embedUrl = `https://www.terabox.com/sharing/embed?surl=${surl}`;
+      return { type: 'mp4', url: embedUrl, surl: surl, isTerabox: true };
     }
 
     // 7. Enlaces .m3u8 directos

@@ -584,30 +584,49 @@ app.post('/api/resolve-media', async (req, res) => {
       }
     }
 
-    // 6. TeraBox (Extracción automática de API /shorturlinfo)
+    // 6. TeraBox (Extracción automática 2-pasos con jsToken)
     if (cleanUrl.includes('terabox') || cleanUrl.includes('1024tera') || cleanUrl.includes('mirrobox') || cleanUrl.includes('nebulabox') || cleanUrl.includes('freeterabox')) {
-      const surlMatch = cleanUrl.match(/\/s\/1?([a-zA-Z0-9_-]+)/i);
+      const surlMatch = cleanUrl.match(/\/s\/1?([a-zA-Z0-9_-]+)/i) || cleanUrl.match(/surl=1?([a-zA-Z0-9_-]+)/i);
       if (surlMatch && surlMatch[1]) {
         const surl = surlMatch[1];
         try {
-          const apiUrl = `https://www.terabox.com/api/shorturlinfo?shorturl=${surl}&root=1`;
-          const resApi = await fetch(apiUrl, {
+          // Paso 1: Obtener jsToken y cookies de la página de embed
+          const embedUrl = `https://www.terabox.com/sharing/embed?surl=${surl}`;
+          const resHtml = await fetch(embedUrl, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
             }
           });
+          const html = await resHtml.text();
+          const tokenMatch = html.match(/jsToken%20%3D%20a%7D%3Bfn%28%22([^"]+)%22%29/i) || html.match(/jsToken["']?\s*:\s*["']([^"']+)["']/i);
+          const jsToken = tokenMatch && tokenMatch[1] ? tokenMatch[1] : '';
+          const cookies = resHtml.headers.get('set-cookie') || '';
+
+          // Paso 2: Consultar la API con jsToken
+          const apiUrl = `https://www.terabox.com/api/shorturlinfo?shorturl=${surl}&root=1&jsToken=${jsToken}`;
+          const resApi = await fetch(apiUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Cookie': cookies,
+              'Referer': embedUrl
+            }
+          });
+
           if (resApi.ok) {
             const json = await resApi.json();
             if (json && json.list && json.list.length > 0) {
               const videoFile = json.list.find(f => f.category == 1 || (f.server_filename && f.server_filename.match(/\.(mp4|mkv|webm|mov|avi)/i))) || json.list[0];
               if (videoFile && videoFile.dlink) {
-                console.log(`[TeraBox Extractor] Enlace dlink extraído: ${videoFile.dlink.substring(0, 60)}...`);
+                console.log(`[TeraBox Extractor] Enlace dlink extraído con éxito: ${videoFile.dlink.substring(0, 60)}...`);
                 return res.json({ type: 'mp4', url: videoFile.dlink });
               }
             }
           }
+          // Fallback a reproductor embebido de TeraBox si la API no entrega dlink directo
+          return res.json({ type: 'mp4', url: embedUrl });
         } catch (eTera) {
           console.warn('Error al extraer TeraBox:', eTera.message);
+          return res.json({ type: 'mp4', url: `https://www.terabox.com/sharing/embed?surl=${surl}` });
         }
       }
     }
