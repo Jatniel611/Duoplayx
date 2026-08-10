@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const https = require('https');
 const zlib = require('zlib');
+const crypto = require('crypto');
 const roomManager = require('./roomManager');
 
 const app = express();
@@ -302,6 +303,17 @@ app.get('/api/stream-proxy', async (req, res) => {
   }
 });
 
+// CDNs que bloquean con 403 a peticiones no-navegador (sin Referer/sesión).
+// Su HLS SOLO se puede reproducir si el server hace de proxy (aunque gaste banda en Render).
+function isTokenProtectedCdn(url) {
+  const u = (url || '').toLowerCase();
+  return u.includes('vimeo') || u.includes('vimeus') ||
+         u.includes('vibuxer') || u.includes('vibux') ||
+         u.includes('morencius') || u.includes('minochinos') || u.includes('vidhide') ||
+         u.includes('player4me') || u.includes('cargahd') ||
+         u.includes('luluvdoo') || u.includes('lulucdn');
+}
+
 // Proxy HLS inteligente (Localhost = Proxy completo local / Render = 302 Directo en 0%)
 app.get('/api/hls-proxy', async (req, res) => {
   const targetUrl = req.query.url;
@@ -310,9 +322,10 @@ app.get('/api/hls-proxy', async (req, res) => {
   if (!targetUrl) return res.status(400).send('URL required');
 
   const isLocal = isLocalhostRequest(req);
+  const isTokenCdn = isTokenProtectedCdn(targetUrl);
 
-  // Si no es local y es un segmento de video binario (.ts / .m4s / .mp4), redirigir directamente para 0% en Render
-  if (!isLocal && (targetUrl.includes('.ts') || targetUrl.includes('.m4s') || targetUrl.includes('.mp4'))) {
+  // Si no es local, es un segmento binario (.ts/.m4s/.mp4) y NO es una CDN token-protegida, redirigir directo (0% en Render)
+  if (!isLocal && !isTokenCdn && (targetUrl.includes('.ts') || targetUrl.includes('.m4s') || targetUrl.includes('.mp4'))) {
     return res.redirect(302, targetUrl);
   }
 
@@ -349,8 +362,9 @@ app.get('/api/hls-proxy', async (req, res) => {
           absoluteSegmentUrl = new URL(trimmed, baseUrl).href;
         }
 
-        // Si es local, canalizar los segmentos por el proxy de localhost. Si es Render, usar URL directa.
-        return isLocal 
+        // Local o CDN token-protegida: canalizar segmentos por el proxy (referer/sesión).
+        // Render + CDN abierta: usar URL directa (0% banda).
+        return (isLocal || isTokenCdn)
           ? `/api/hls-proxy?url=${encodeURIComponent(absoluteSegmentUrl)}&referer=${encodeURIComponent(referer)}`
           : absoluteSegmentUrl;
       }).join('\n');
@@ -372,11 +386,15 @@ app.get('/api/hls-proxy', async (req, res) => {
       } catch (eClose) {}
     });
 
-    res.writeHead(status === 206 ? 206 : 200, {
+    const proxyHeaders = {
       'Content-Type': contentType,
       'Accept-Ranges': 'bytes',
       'Access-Control-Allow-Origin': '*'
-    });
+    };
+    if (proxyRes.headers['content-length']) proxyHeaders['Content-Length'] = proxyRes.headers['content-length'];
+    if (proxyRes.headers['content-range']) proxyHeaders['Content-Range'] = proxyRes.headers['content-range'];
+    if (proxyRes.headers['content-encoding']) proxyHeaders['Content-Encoding'] = proxyRes.headers['content-encoding'];
+    res.writeHead(status === 206 ? 206 : 200, proxyHeaders);
     proxyRes.pipe(res);
 
   } catch (err) {
@@ -451,6 +469,199 @@ function unpackDeanEdwardsJs(code) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS DE EXTRACCIÓN (portados de Peliscarga app)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Encuentra una URL .m3u8 / .urlset/master en un texto (HTML o JS desempaquetado)
+function findM3u8Url(text) {
+  if (!text || typeof text !== 'string') return null;
+  const m = text.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.(?:m3u8|urlset)[^"'`\s>]*)/i) ||
+           text.match(/file:\s*["']([^"']+\.(?:m3u8|urlset)[^"']*)["']/i) ||
+           text.match(/source:\s*["']([^"']+\.(?:m3u8|urlset)[^"']*)["']/i) ||
+           text.match(/src:\s*["']([^"']+\.(?:m3u8|urlset)[^"']*)["']/i);
+  if (!m) return null;
+  let url = (m[1] || m[0]).replace(/\\/g, '');
+  if (url.startsWith('//')) url = 'https:' + url;
+  return url;
+}
+
+// URL del proxy HLS (misma-origen para el navegador + referer del CDN)
+function hlsProxyUrl(url, referer) {
+  return `/api/hls-proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer || '')}`;
+}
+
+// El referer que necesitan los CDN token-protegidos es su PROPIA misma-origen
+function cdnSameOriginReferer(url) {
+  try {
+    return new URL(url).origin + '/';
+  } catch (e) {
+    return '';
+  }
+}
+
+// Extractores de la familia Vibuxer (vibuxer.com/.net, morencius, minochinos, vidhide)
+// Patrón: JS Dean Edwards desempaquetado con objeto links = {hls2,hls3,hls4,...}
+async function extractVibuxerFamily(embedUrl) {
+  try {
+    let targetUrl = embedUrl.trim();
+    const origin = new URL(targetUrl).origin;
+
+    const candidates = [targetUrl];
+    if (!targetUrl.includes('/e/') && !targetUrl.includes('/d/')) {
+      const u = new URL(targetUrl);
+      u.pathname = '/e' + u.pathname;
+      candidates.push(u.href);
+    }
+
+    for (const cand of candidates) {
+      let html = await safeFetchHtml(cand, origin + '/');
+      if (!html) continue;
+      const unpacked = unpackDeanEdwardsJs(html);
+      if (!unpacked || unpacked === html) continue;
+
+      // Soportar claves con comillas ("hls2") o sin comillas (hls2)
+      const linksMatch = unpacked.match(/(\{[^{}]*["']?hls[234]["']?\s*:[^{}]*\})/);
+      if (!linksMatch) continue;
+
+      let videoUrl = null;
+      try {
+        const links = JSON.parse(linksMatch[1]);
+        const v = links.hls4 || links.hls3 || links.hls2;
+        if (v) {
+          let url = String(v);
+          if (url.startsWith('/')) url = origin + url;
+          if (/^https?:\/\//i.test(url)) videoUrl = url;
+        }
+      } catch (eParse) {
+        const hlsM = linksMatch[1].match(/["']?hls[234]["']?\s*:\s*["']([^"']+)["']/);
+        if (hlsM && hlsM[1]) {
+          let v = hlsM[1].replace(/\\/g, '');
+          if (v.startsWith('/')) v = origin + v;
+          if (/^https?:\/\//i.test(v)) videoUrl = v;
+        }
+      }
+
+      if (videoUrl) {
+        console.log(`[Vibuxer Extractor] ✅ Stream extraído: ${videoUrl.substring(0, 90)}`);
+        return {
+          type: 'hls',
+          url: hlsProxyUrl(videoUrl, cdnSameOriginReferer(videoUrl)),
+          referer: cand,
+          originalUrl: videoUrl
+        };
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn('[Vibuxer Extractor Error]:', err.message);
+    return null;
+  }
+}
+
+// Extractor Player4me / Cargahd (API cifrada AES-128-CBC)
+async function extractPlayer4me(embedUrl) {
+  try {
+    const parsed = new URL(embedUrl.trim());
+    const origin = parsed.origin;
+    let hash = (parsed.hash || '').replace(/^#/, '').split('&')[0];
+    if (!hash) return null;
+
+    // Inicializa sesión/cookies del dominio
+    await safeFetchHtml(embedUrl, origin + '/');
+
+    const apiUrl = `${origin}/api/v1/video?id=${encodeURIComponent(hash)}&w=1920&h=1080&r=`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    let res;
+    try {
+      res = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Referer': origin + '/',
+          'Origin': origin,
+          'Accept': '*/*'
+        },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (!res || !res.ok) return null;
+    const hexCipher = (await res.text()).trim();
+    if (!hexCipher || hexCipher.length < 32) return null;
+
+    let decrypted;
+    try {
+      const decipher = crypto.createDecipheriv('aes-128-cbc', Buffer.from('kiemtienmua911ca', 'utf8'), Buffer.from('1234567890oiuytr', 'utf8'));
+      decrypted = Buffer.concat([decipher.update(Buffer.from(hexCipher, 'hex')), decipher.final()]).toString('utf8');
+    } catch (eDec) {
+      console.warn('[Player4me] Error al descifrar:', eDec.message);
+      return null;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(decrypted);
+    } catch (eJson) {
+      return null;
+    }
+
+    let videoUrl = data.cfNative || data.source || data.cf;
+    if (!videoUrl) return null;
+    if (videoUrl.startsWith('/')) videoUrl = origin + videoUrl;
+    if (!/^https?:\/\//i.test(videoUrl)) return null;
+
+    const isHls = videoUrl.includes('.m3u8') || videoUrl.includes('playlist') || videoUrl.includes('master') || !videoUrl.includes('.mp4');
+    console.log(`[Player4me Extractor] ✅ Stream extraído: ${videoUrl.substring(0, 90)}`);
+    return {
+      type: isHls ? 'hls' : 'mp4',
+      url: isHls ? hlsProxyUrl(videoUrl, cdnSameOriginReferer(videoUrl)) : videoUrl,
+      referer: embedUrl,
+      originalUrl: videoUrl
+    };
+  } catch (err) {
+    console.warn('[Player4me Extractor Error]:', err.message);
+    return null;
+  }
+}
+
+// Extractor Luluvdoo / Lulucdn (JS desempaquetado con file:"...")
+async function extractLuluvdoo(embedUrl) {
+  try {
+    let targetUrl = embedUrl.trim();
+    const origin = new URL(targetUrl).origin;
+
+    const candidates = [targetUrl];
+    if (!targetUrl.includes('/e/')) {
+      const u = new URL(targetUrl);
+      u.pathname = '/e' + u.pathname;
+      candidates.push(u.href);
+    }
+
+    for (const cand of candidates) {
+      let html = await safeFetchHtml(cand, origin + '/');
+      if (!html) continue;
+      const unpacked = unpackDeanEdwardsJs(html);
+      const m3u8Url = findM3u8Url(unpacked);
+      if (m3u8Url) {
+        console.log(`[Luluvdoo Extractor] ✅ HLS extraído: ${m3u8Url.substring(0, 90)}`);
+        return {
+          type: 'hls',
+          url: hlsProxyUrl(m3u8Url, cdnSameOriginReferer(m3u8Url)),
+          referer: cand,
+          originalUrl: m3u8Url
+        };
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn('[Luluvdoo Extractor Error]:', err.message);
+    return null;
+  }
+}
+
 async function extractHlsFromEmbed(embedUrl) {
   try {
     let targetUrl = embedUrl.trim();
@@ -471,6 +682,21 @@ async function extractHlsFromEmbed(embedUrl) {
 
     if (targetUrl.includes('.m3u8')) {
       return { type: 'hls', url: targetUrl };
+    }
+
+    // Extractores específicos por proveedor (portados de Peliscarga)
+    const lowUrl = targetUrl.toLowerCase();
+    if (lowUrl.includes('vibux') || lowUrl.includes('morencius') || lowUrl.includes('minochinos') || lowUrl.includes('vidhide')) {
+      const vibuxer = await extractVibuxerFamily(targetUrl);
+      if (vibuxer) return vibuxer;
+    }
+    if (lowUrl.includes('player4me') || lowUrl.includes('cargahd')) {
+      const player4me = await extractPlayer4me(targetUrl);
+      if (player4me) return player4me;
+    }
+    if (lowUrl.includes('luluvdoo') || lowUrl.includes('lulucdn')) {
+      const luluvdoo = await extractLuluvdoo(targetUrl);
+      if (luluvdoo) return luluvdoo;
     }
 
     const u = new URL(targetUrl);
@@ -513,15 +739,16 @@ async function extractHlsFromEmbed(embedUrl) {
     // Desempaquetar JS de Vimeus / Vimeos / JWPlayer obfuscados
     html = unpackDeanEdwardsJs(html);
 
-    // 1. Buscar .m3u8
-    const m3u8Match = html.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.m3u8[^"'`\s>]*)/i) ||
-                      html.match(/file:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
-                      html.match(/source:\s*["']([^"']+\.m3u8[^"']*)["']/i) ||
-                      html.match(/src:\s*["']([^"']+\.m3u8[^"']*)["']/i);
-    if (m3u8Match) {
-      let hlsUrl = (m3u8Match[1] || m3u8Match[0]).replace(/\\/g, '');
-      if (hlsUrl.startsWith('//')) hlsUrl = 'https:' + hlsUrl;
-      return { type: 'hls', url: hlsUrl, referer: targetUrl };
+    // 1. Buscar .m3u8 / .urlset/master (vimeos/vimeus con HLS por el proxy del server)
+    const hlsUrl = findM3u8Url(html);
+    if (hlsUrl) {
+      console.log(`[HLS Extractor] ✅ HLS extraído: ${hlsUrl.substring(0, 90)}`);
+      return {
+        type: 'hls',
+        url: hlsProxyUrl(hlsUrl, cdnSameOriginReferer(hlsUrl)),
+        referer: targetUrl,
+        originalUrl: hlsUrl
+      };
     }
 
     // 2. Buscar .mp4 directo
@@ -545,12 +772,15 @@ async function extractHlsFromEmbed(embedUrl) {
         let innerHtml = await safeFetchHtml(iframeSrc, targetUrl);
         innerHtml = unpackDeanEdwardsJs(innerHtml);
 
-        const innerM3u8 = innerHtml.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.m3u8[^"'`\s>]*)/i) ||
-                          innerHtml.match(/file:\s*["']([^"']+\.m3u8[^"']*)["']/i);
-        if (innerM3u8) {
-          let hlsUrl = (innerM3u8[1] || innerM3u8[0]).replace(/\\/g, '');
-          if (hlsUrl.startsWith('//')) hlsUrl = 'https:' + hlsUrl;
-          return { type: 'hls', url: hlsUrl, referer: iframeSrc };
+        const innerHlsUrl = findM3u8Url(innerHtml);
+        if (innerHlsUrl) {
+          console.log(`[HLS Extractor] ✅ HLS de iframe interno: ${innerHlsUrl.substring(0, 90)}`);
+          return {
+            type: 'hls',
+            url: hlsProxyUrl(innerHlsUrl, cdnSameOriginReferer(innerHlsUrl)),
+            referer: iframeSrc,
+            originalUrl: innerHlsUrl
+          };
         }
 
         const innerMp4 = innerHtml.match(/(https?:[\\\/][\\\/][^"'`\s>]+\.(?:mp4|mkv|webm)[^"'`\s>]*)/i) ||

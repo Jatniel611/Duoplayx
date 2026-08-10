@@ -380,7 +380,7 @@ class PlayerManager {
         }
       });
     } else if (this.mp4Video.canPlayType('application/vnd.apple.mpegurl')) {
-      this.mp4Video.src = proxyUrl;
+      this.mp4Video.src = targetSource;
       if (autoPlay) {
         this.mp4Video.play().catch(err => console.log('[HLS Native Autoplay bloqueado]:', err.message));
       } else {
