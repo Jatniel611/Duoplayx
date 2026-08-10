@@ -18,6 +18,7 @@ class PlayerManager {
 
     this.mp4Video    = document.getElementById('html5VideoPlayer');
     this.gdriveVideo = document.getElementById('gdriveVideoPlayer');
+    this.iframeVideo  = document.getElementById('iframeVideoPlayer');
     this.loadingOverlay = document.getElementById('videoLoadingOverlay');
     this.loadingText    = document.getElementById('videoLoadingText');
 
@@ -107,7 +108,7 @@ class PlayerManager {
 
   // ─── Mostrar/ocultar contenedores ─────────────────────────────────────────
   _showContainer(which) {
-    ['youtubePlayerContainer', 'mp4PlayerContainer', 'gdrivePlayerContainer', 'emptyMediaOverlay']
+    ['youtubePlayerContainer', 'mp4PlayerContainer', 'gdrivePlayerContainer', 'iframePlayerContainer', 'emptyMediaOverlay']
       .forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
@@ -116,6 +117,7 @@ class PlayerManager {
       youtube: 'youtubePlayerContainer',
       mp4    : 'mp4PlayerContainer',
       gdrive : 'gdrivePlayerContainer',
+      iframe : 'iframePlayerContainer',
       empty  : 'emptyMediaOverlay'
     };
     const t = document.getElementById(map[which]);
@@ -220,6 +222,7 @@ class PlayerManager {
     }
     if (this.mp4Video)    { this.mp4Video.pause();    this.mp4Video.src = ''; }
     if (this.gdriveVideo) { this.gdriveVideo.pause(); this.gdriveVideo.src = ''; }
+    if (this.iframeVideo) { this.iframeVideo.src = ''; }
     if (this.ytPlayer && this.isYTReady && typeof this.ytPlayer.pauseVideo === 'function') {
       this.ytPlayer.pauseVideo();
     }
@@ -281,6 +284,26 @@ class PlayerManager {
     this.setLocalVolume(this.localVolume);
   }
 
+  // ─── Reproducir embed original en iframe (fallback vimeus/vimeos) ────────
+  // Los CDN de estos embeds (s13.vimeos.net, p4.vimeos.zip, etc.) bloquean las
+  // peticiones que no vienen del navegador real con su sesión, así que si el
+  // stream HLS directo falla, se carga la página embed original (que sí crea
+  // su propia sesión y reproduce). Sin consumo de banda del servidor.
+  _playIframe(embedUrl) {
+    console.warn('[Player] Reproduciendo embed original en iframe:', embedUrl);
+    this.currentType = 'iframe';
+    this._showContainer('iframe');
+    if (this.hlsInstance) {
+      this.hlsInstance.destroy();
+      this.hlsInstance = null;
+    }
+    if (this.iframeVideo) {
+      this.iframeVideo.src = embedUrl;
+    }
+    if (window.appUI) window.appUI.showToast('🎬 Reproduciendo reproductor original del sitio...', 'info');
+    this.showLoadingOverlay(false);
+  }
+
   _playHLSStream(hlsUrl, referer, autoPlay = true) {
     // Usar la fuente HLS directa del cliente por defecto (0% ancho de banda del servidor)
     const targetSource = hlsUrl;
@@ -292,6 +315,7 @@ class PlayerManager {
       if (this.hlsInstance) {
         this.hlsInstance.destroy();
       }
+      let networkFails = 0;
       this.hlsInstance = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
@@ -333,6 +357,14 @@ class PlayerManager {
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
+              networkFails++;
+              // Si el CDN bloquea el stream (403/sesión) y tenemos el embed original,
+              // fallback automático a iframe (el embed crea su propia sesión).
+              if (networkFails >= 2 && referer && /^https?:\/\//i.test(referer) && !referer.includes('.m3u8')) {
+                console.warn('[HLS] CDN bloqueó el stream; fallback a iframe del embed:', referer);
+                this._playIframe(referer);
+                return;
+              }
               console.warn('[HLS Network Error] Intentando recuperar red...');
               this.hlsInstance.startLoad();
               break;
