@@ -407,14 +407,14 @@ app.get('/api/hls-proxy', async (req, res) => {
 // EXTRACTOR SEGURIZADO DE HLS / M3U8 Y PROXY DE STREAMING
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function safeFetchHtml(targetUrl, referer) {
+async function safeFetchHtml(targetUrl, referer, customUA) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 7000);
 
     const domain = new URL(targetUrl).origin;
     const reqHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'User-Agent': customUA || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       'Referer': referer || domain,
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
     };
@@ -724,6 +724,14 @@ async function resolveVimeoEmbed(embedUrl) {
   }
 }
 
+// Vimeus/Vimeos → descriptor para extracción EN EL NAVEGADOR.
+// El token t=/s= del HLS de vimeos se firma con el **User-Agent** del que pide
+// el HTML del embed (probado: token firmado con UA Chrome/124 → 403 con UA
+// Chrome/126 y viceversa). Por eso el server NO puede extraer un HLS que luego
+// reproduzca el navegador (UA distinto). La única vía limpia y sin banda de
+// servidor es que CADA navegador pida su propio HTML (vía /api/embed-html, que
+// reenvía el UA del cliente), desempaquete el JS y extraiga su master con su
+// token válido. El video fluye directo CDN → navegador (0% del server).
 async function extractHlsFromEmbed(embedUrl) {
   try {
     let targetUrl = embedUrl.trim();
@@ -734,13 +742,14 @@ async function extractHlsFromEmbed(embedUrl) {
       targetUrl = targetUrl.replace('vimeos.net/v/', 'vimeos.net/e/');
     }
 
-    // Vimeus/Vimeos: ir DIRECTO al iframe del embed (el CDN token-protegido 403
-    // a todo request del server; solo reproduce en el navegador con su sesión).
+    // Vimeus/Vimeos: descriptor para que el NAVEGADOR extraiga el HLS con su
+    // propio User-Agent (el token del CDN se firma por UA, así que solo así
+    // reproduce y sin gastar banda del server). Fallback: iframe del embed.
     if (isVimeoFamily(targetUrl)) {
       const vimeoEmbed = await resolveVimeoEmbed(targetUrl);
       if (vimeoEmbed) {
-        console.log(`[Vimeos] Reproducción vía iframe del embed: ${vimeoEmbed.substring(0, 90)}`);
-        return { type: 'iframe', url: vimeoEmbed, referer: vimeoEmbed, originalUrl: targetUrl };
+        console.log(`[Vimeos] Descriptor para extracción en navegador: ${vimeoEmbed.substring(0, 90)}`);
+        return { type: 'vimeo', url: vimeoEmbed, embedUrl: vimeoEmbed, referer: vimeoEmbed, originalUrl: targetUrl };
       }
       console.warn('[Vimeos] No se pudo resolver el embed vimeos; intentando extracción HLS genérica:', targetUrl);
     }
@@ -1041,6 +1050,44 @@ app.post('/api/resolve-media', async (req, res) => {
   } catch (err) {
     console.error('[Resolve Media Error]:', err.message);
     res.json({ type: 'mp4', url: req.body.url });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// /api/embed-html — HTML crudo del embed vimeos/vimeus para extraer el HLS EN
+// EL NAVEGADOR. Devuelve el HTML del embed reenviando el User-Agent del cliente:
+// así el token t=/s= que firma la CDN queda atado al UA del navegador y el HLS
+// se puede reproducir DIRECTO CDN → navegador (0% banda del servidor, video
+// limpio y sincronizable). El HTML pesa ~50KB (solo texto, no video).
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/embed-html', async (req, res) => {
+  const url = ((req.body && req.body.url) || '').trim();
+  if (!url) return res.status(400).json({ error: 'URL requerida' });
+
+  try {
+    // Resolver el embed vimeos real (vimeus.com → vimeos.net) desde el server
+    let embedUrl = url;
+    if (isVimeoFamily(url)) {
+      const resolved = await resolveVimeoEmbed(url);
+      if (resolved) embedUrl = resolved;
+    }
+    if (!isVimeoFamily(embedUrl)) {
+      return res.status(400).json({ error: 'URL no soportada para extracción en navegador' });
+    }
+
+    // Reenviar el UA del navegador (clave: la CDN firma el token con este UA)
+    const clientUA = (req.headers['user-agent'] && /Mozilla|Chrome|Edg|Safari|Firefox/i.test(req.headers['user-agent']))
+      ? req.headers['user-agent']
+      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+    const html = await safeFetchHtml(embedUrl, embedUrl, clientUA);
+    if (!html || (!html.includes('<html') && !html.includes('<script'))) {
+      return res.status(502).json({ error: 'El embed no devolvió HTML válido' });
+    }
+    res.json({ html, embedUrl });
+  } catch (err) {
+    console.error('[Embed-HTML Error]:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

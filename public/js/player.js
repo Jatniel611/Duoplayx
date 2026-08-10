@@ -232,9 +232,16 @@ class PlayerManager {
       this._showContainer('mp4');
       this._playHLSStream(media.url, media.referer, autoPlay);
 
+    } else if (media.type === 'vimeo') {
+      // Vimeus/Vimeos: extraer el HLS EN ESTE navegador (el token del CDN se
+      // firma con el User-Agent de quien pide el embed; así reproduce directo
+      // CDN → navegador: 0% banda del server, video limpio y sincronizable).
+      this.currentType = 'vimeo';
+      this._showContainer('mp4');
+      this._playVimeoEmbed(media.embedUrl || media.url || media.referer, autoPlay);
+
     } else if (media.type === 'iframe') {
-      // Vimeus/Vimeos: el CDN token-protegido 403 al server, solo reproduce el
-      // embed original (crea su propia sesión). Ir directo, sin intento HLS.
+      // Último recurso: reproducir embed original en iframe (sin sync).
       this._playIframe(media.url || media.referer);
 
     } else if (media.type === 'youtube') {
@@ -287,6 +294,24 @@ class PlayerManager {
     }
 
     this.setLocalVolume(this.localVolume);
+  }
+
+  // ─── Extraer y reproducir HLS de embeds vimeus/vimeos ─────────────────────
+  // Cada navegador extrae su propio master (token firmado para su UA) vía
+  // /api/embed-html + VimeoExtractor, y reproduce DIRECTO del CDN. Si la
+  // extracción o el CDN fallan → iframe del embed (último recurso).
+  async _playVimeoEmbed(embedUrl, autoPlay = true) {
+    this._vimeoEmbedRequest = embedUrl;
+    try {
+      if (window.appUI) window.appUI.showToast('🔍 Extrayendo HLS limpio del servidor de video...', 'info');
+      const master = await window.VimeoExtractor.extractVimeos(embedUrl);
+      if (this._vimeoEmbedRequest !== embedUrl) return; // cambiaron de media mientras tanto
+      console.log(`[Vimeo] Master extraído en navegador (token para este UA): ${master.substring(0, 100)}`);
+      this._playHLSStream(master, embedUrl, autoPlay);
+    } catch (err) {
+      console.warn('[Vimeo] Extracción HLS falló; fallback a iframe del embed:', err.message);
+      this._playIframe(embedUrl);
+    }
   }
 
   // ─── Reproducir embed original en iframe (fallback vimeus/vimeos) ────────
