@@ -20,11 +20,28 @@ class RoomManager {
     return code;
   }
 
+  // Reescritura de URLs http:// al proxy del servidor (mixed content en páginas https).
+  // Los enlaces http:// directos NO se pueden cargar desde una página https (Render/Android),
+  // así que se canalizan por /api/stream-proxy (misma-origen).
+  normalizeMediaUrl(url) {
+    if (typeof url !== 'string') return url;
+    if (/^https?:\/\//i.test(url)) {
+      try {
+        const u = new URL(url);
+        const isSameOrigin = u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+        if (u.protocol === 'http:' && !isSameOrigin) {
+          return '/api/stream-proxy?url=' + encodeURIComponent(url);
+        }
+      } catch (e) {}
+    }
+    return url;
+  }
+
   parseMediaSource(mediaInput) {
     if (!mediaInput) return null;
 
     if (typeof mediaInput === 'object') {
-      if (mediaInput.url) return mediaInput;
+      if (mediaInput.url) return { ...mediaInput, url: this.normalizeMediaUrl(mediaInput.url) };
     }
 
     if (typeof mediaInput !== 'string') return null;
@@ -70,24 +87,20 @@ class RoomManager {
 
     // 5. MediaFire
     if (url.includes('mediafire.com')) {
-      const mfDirect = url.match(/(https?:\/\/download\d+\.mediafire\.com\/[^\s"'\?#]+\.(?:mp4|mkv|webm|avi|mov))/i);
+      const mfDirect = url.match(/(https?:\/\/download\d+\.mediafire\.com\/[^\s"'\?#]+)/i);
       if (mfDirect && mfDirect[1]) {
         return { type: 'mp4', url: mfDirect[1] };
       }
     }
 
-    // 6. TeraBox
-    const teraboxMatch = url.match(/(?:terabox\.com|teraboxapp\.com|1024tera\.com|freeterabox\.com|terabox\.app|mirrobox\.com|nebulabox\.com)\/s\/1?([a-zA-Z0-9_-]+)/i) || url.match(/surl=1?([a-zA-Z0-9_-]+)/i);
-    if (teraboxMatch && teraboxMatch[1]) {
-      const surl = teraboxMatch[1];
-      const embedUrl = `https://www.terabox.com/sharing/embed?surl=${surl}`;
-      return { type: 'mp4', url: embedUrl, surl: surl, isTerabox: true };
+    // 6. Catbox / Litterbox
+    if (url.includes('catbox.moe')) {
+      return { type: 'mp4', url: url };
     }
 
-    // 7. GoFile
-    const gofileMatch = url.match(/gofile\.io\/(?:d|c)\/([a-zA-Z0-9_-]+)/i);
-    if (gofileMatch && gofileMatch[1]) {
-      return { type: 'gofile', url: url, contentId: gofileMatch[1], isGoFile: true };
+    // 7. Archive.org
+    if (url.includes('archive.org')) {
+      return { type: 'mp4', url: url };
     }
 
     // 7. Enlaces HLS .m3u8

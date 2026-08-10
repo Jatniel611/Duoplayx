@@ -940,24 +940,20 @@ class AppUI {
 
     // 5. MediaFire
     if (url.includes('mediafire.com')) {
-      const mfDirect = url.match(/(https?:\/\/download\d+\.mediafire\.com\/[^\s"'\?#]+\.(?:mp4|mkv|webm|avi|mov))/i);
+      const mfDirect = url.match(/(https?:\/\/download\d+\.mediafire\.com\/[^\s"'\?#]+)/i);
       if (mfDirect && mfDirect[1]) {
         return { type: 'mp4', url: mfDirect[1] };
       }
     }
 
-    // 6. TeraBox (terabox.com, teraboxapp.com, 1024tera.com, freeterabox.com, terabox.app, mirrobox.com, etc.)
-    const teraboxMatch = url.match(/(?:terabox\.com|teraboxapp\.com|1024tera\.com|freeterabox\.com|terabox\.app|mirrobox\.com|nebulabox\.com)\/s\/1?([a-zA-Z0-9_-]+)/i) || url.match(/surl=1?([a-zA-Z0-9_-]+)/i);
-    if (teraboxMatch && teraboxMatch[1]) {
-      const surl = teraboxMatch[1];
-      const embedUrl = `https://www.terabox.com/sharing/embed?surl=${surl}`;
-      return { type: 'mp4', url: embedUrl, surl: surl, isTerabox: true };
+    // 6. Catbox / Litterbox (catbox.moe / litterbox.catbox.moe)
+    if (url.includes('catbox.moe')) {
+      return { type: 'mp4', url: url };
     }
 
-    // 7. GoFile (gofile.io/d/ID)
-    const gofileMatch = url.match(/gofile\.io\/(?:d|c)\/([a-zA-Z0-9_-]+)/i);
-    if (gofileMatch && gofileMatch[1]) {
-      return { type: 'gofile', url: url, contentId: gofileMatch[1], isGoFile: true };
+    // 7. Archive.org (Internet Archive - enlaces MP4 directos)
+    if (url.includes('archive.org')) {
+      return { type: 'mp4', url: url };
     }
 
     // 8. Enlaces .m3u8 directos
@@ -1261,7 +1257,8 @@ class AppUI {
     if (roomData.media) {
       const isPlaying = roomData.mediaState ? !!roomData.mediaState.isPlaying : false;
       const initialTime = roomData.mediaState ? (roomData.mediaState.calculatedTime || roomData.mediaState.currentTime || 0) : 0;
-      window.playerManager.setMediaSource(roomData.media, isPlaying).then(() => {
+      const media = window.socketManager ? window.socketManager.normalizeMedia(roomData.media) : roomData.media;
+      window.playerManager.setMediaSource(media, isPlaying).then(() => {
         window.playerManager.syncRemoteAction(isPlaying ? 'play' : 'pause', initialTime, isPlaying);
       }).catch(err => {
         console.warn('Error al configurar media inicial:', err);

@@ -253,6 +253,55 @@ app.get('/api/pixeldrain-stream/:fileId', async (req, res) => {
   }
 });
 
+// Proxy de stream directo (MP4/etc.) para URLs http:// (mixed content en HTTPS).
+// Consumo de banda del servidor = 0% SIEMPRE que se pueda:
+//  - Target https → 302 directo (el navegador carga solo, en nube y en local).
+//  - Target http + página servida por http (localhost/Electron) → 302 directo.
+//  - Target http + página https (Render) → proxy OBLIGATORIO (mixed content).
+app.get('/api/stream-proxy', async (req, res) => {
+  const targetUrl = (req.query.url || '').trim();
+  if (!targetUrl) return res.status(400).json({ error: 'URL required' });
+  if (!/^https?:\/\//i.test(targetUrl)) return res.status(400).json({ error: 'Solo se permiten URLs http/https' });
+
+  const isHttpsTarget = targetUrl.startsWith('https://');
+  const pageIsHttps = String(req.headers['x-forwarded-proto'] || '').toLowerCase() === 'https'
+    || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https'
+    || (req.connection && req.connection.encrypted);
+
+  // 302 directo: el navegador carga sin pasar por el servidor (0% ancho de banda).
+  // Solo se fuerza proxy cuando un destino http se carga desde una página https.
+  if (isHttpsTarget || !pageIsHttps) {
+    return res.redirect(302, targetUrl);
+  }
+
+  try {
+    const reqHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept-Encoding': 'identity'
+    };
+    if (req.headers.range) reqHeaders['Range'] = req.headers.range;
+
+    const upRes = await makeHttpsRequest(targetUrl, reqHeaders);
+    const status = upRes.statusCode;
+
+    const resHeaders = {
+      'Content-Type': upRes.headers['content-type'] || 'video/mp4',
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache'
+    };
+    if (upRes.headers['content-length']) resHeaders['Content-Length'] = upRes.headers['content-length'];
+    if (upRes.headers['content-range']) resHeaders['Content-Range'] = upRes.headers['content-range'];
+
+    res.writeHead(status === 206 ? 206 : (status === 200 ? 200 : status), resHeaders);
+    upRes.pipe(res);
+    req.on('close', () => upRes.destroy());
+  } catch (err) {
+    console.error('[Stream Proxy Error]:', err.message);
+    res.redirect(302, targetUrl);
+  }
+});
+
 // Proxy HLS inteligente (Localhost = Proxy completo local / Render = 302 Directo en 0%)
 app.get('/api/hls-proxy', async (req, res) => {
   const targetUrl = req.query.url;

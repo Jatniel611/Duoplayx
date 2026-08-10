@@ -8,8 +8,23 @@ class SocketManager {
     this.currentRoomId = null;
     this.currentUser = null;
     this.isHost = false;
+    this.serverUrl = '';
     this._initDone = false;
     this._initSocket();
+  }
+
+  // Convierte una media URL relativa (ej. /api/stream-proxy?url=...) del servidor
+  // a una URL absoluta contra el origen del socket. Necesario en apps nativas
+  // (APK/Electron) cuyo origin es capacitor:// o file://, donde /api/... no resuelve.
+  resolveMediaUrl(url) {
+    if (typeof url !== 'string' || url.charAt(0) !== '/') return url;
+    const base = this.serverUrl || this._getServerUrl();
+    return base + url;
+  }
+
+  normalizeMedia(media) {
+    if (media && typeof media.url === 'string') media.url = this.resolveMediaUrl(media.url);
+    return media;
   }
 
   _getServerUrl() {
@@ -36,6 +51,7 @@ class SocketManager {
     }
 
     const serverUrl = this._getServerUrl();
+    this.serverUrl = serverUrl;
     console.log('[DuoPlayX] Conectando a:', serverUrl);
 
     try {
@@ -89,7 +105,7 @@ class SocketManager {
     });
 
     s.on('media_source_changed', (data) => {
-      if (window.playerManager) window.playerManager.setMediaSource(data.media);
+      if (window.playerManager) window.playerManager.setMediaSource(this.normalizeMedia(data.media));
       if (data.sysMessage && window.appUI) window.appUI.appendChatMessage(data.sysMessage);
       if (window.appUI) window.appUI.showToast(`El Host cambió la película 🎬`, 'info');
     });
@@ -295,7 +311,7 @@ class SocketManager {
     return new Promise((resolve, reject) => {
       if (!this.currentRoomId || !this.socket) return reject('No estás en ninguna sala.');
       this.socket.emit('change_media_source', { roomId: this.currentRoomId, mediaUrl }, (response) => {
-        if (response && response.success) resolve(response.media);
+        if (response && response.success) resolve(this.normalizeMedia(response.media));
         else reject(response ? response.error : 'URL no válida.');
       });
     });
