@@ -662,6 +662,68 @@ async function extractLuluvdoo(embedUrl) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// VIMEUS / VIMEOS → reproducción directa en IFRAME
+// ─────────────────────────────────────────────────────────────────────────────
+// Los CDN token-protegidos de vimeos (s13.vimeos.net, p2.vimeos.zip, etc.)
+// responden 403 Forbidden a TODO request que no venga de la sesión real del
+// navegador que cargó el embed (probado empíricamente: 403 incluso con token
+// fresco, Referer same-origin y UA Chrome). Por eso el HLS extraído por el
+// server JAMÁS reproduce en el cliente (ni directo ni por proxy). La única vía
+// es cargar el embed original en un <iframe>: el embed crea su propia sesión
+// y reproduce. Consume 0% de banda del servidor.
+
+function isVimeoFamily(url) {
+  const u = (url || '').toLowerCase();
+  return u.includes('vimeus') || u.includes('vimeos');
+}
+
+// Encuentra la URL del embed vimeos real (el que reproduce en el navegador)
+async function resolveVimeoEmbed(embedUrl) {
+  try {
+    const targetUrl = embedUrl.trim();
+    const lower = targetUrl.toLowerCase();
+
+    // Ya es un embed vimeos directo
+    if (/vimeos\.(net|com|zip)\/embed-/i.test(targetUrl)) {
+      return targetUrl;
+    }
+
+    const u = new URL(targetUrl);
+    const domain = `${u.protocol}//${u.hostname}`;
+    const referer = lower.includes('vimeus.com') ? 'https://vimeus.com/' : domain + '/';
+    const html = await safeFetchHtml(targetUrl, referer);
+    if (!html) return null;
+
+    // 1. iframe src que apunte a vimeos
+    let m = html.match(/(?:iframe[^>]+src|src)\s*=\s*["'](https?:\/\/(?:vimeos\.net|vimeos\.com|vimeos\.zip)\/embed-[^"'\s>]+)/i);
+    if (m && m[1]) return m[1];
+
+    // 2. URL genérica de vimeos en el HTML
+    m = html.match(/(https?:\/\/(?:vimeos\.net|vimeos\.com|vimeos\.zip)\/[^\s"'<>]+)/i);
+    if (m && m[1]) return m[1].replace(/\\/g, '');
+
+    // 3. JSON <script id="data"> / text/json (embeds)
+    const jm = html.match(/<script[^>]*id=["']data["'][^>]*>([\s\S]*?)<\/script>/i) ||
+               html.match(/<script[^>]*type=["']text\/json["'][^>]*>([\s\S]*?)<\/script>/i);
+    if (jm && jm[1]) {
+      try {
+        const d = JSON.parse(jm[1].trim());
+        const embeds = (d && Array.isArray(d.embeds)) ? d.embeds : [];
+        for (const e of embeds) {
+          if (e && e.url && /vimeos\.(net|com|zip)/i.test(e.url)) return e.url;
+        }
+        for (const e of embeds) {
+          if (e && e.url && !/goodstream\.one/i.test(e.url) && !/vimeus\.com/i.test(e.url)) return e.url;
+        }
+      } catch (eJson) {}
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
 async function extractHlsFromEmbed(embedUrl) {
   try {
     let targetUrl = embedUrl.trim();
@@ -670,6 +732,17 @@ async function extractHlsFromEmbed(embedUrl) {
     }
     if (targetUrl.includes('vimeos.net/v/')) {
       targetUrl = targetUrl.replace('vimeos.net/v/', 'vimeos.net/e/');
+    }
+
+    // Vimeus/Vimeos: ir DIRECTO al iframe del embed (el CDN token-protegido 403
+    // a todo request del server; solo reproduce en el navegador con su sesión).
+    if (isVimeoFamily(targetUrl)) {
+      const vimeoEmbed = await resolveVimeoEmbed(targetUrl);
+      if (vimeoEmbed) {
+        console.log(`[Vimeos] Reproducción vía iframe del embed: ${vimeoEmbed.substring(0, 90)}`);
+        return { type: 'iframe', url: vimeoEmbed, referer: vimeoEmbed, originalUrl: targetUrl };
+      }
+      console.warn('[Vimeos] No se pudo resolver el embed vimeos; intentando extracción HLS genérica:', targetUrl);
     }
 
     // Pixeldrain

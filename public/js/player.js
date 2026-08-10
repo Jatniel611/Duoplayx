@@ -232,6 +232,11 @@ class PlayerManager {
       this._showContainer('mp4');
       this._playHLSStream(media.url, media.referer, autoPlay);
 
+    } else if (media.type === 'iframe') {
+      // Vimeus/Vimeos: el CDN token-protegido 403 al server, solo reproduce el
+      // embed original (crea su propia sesión). Ir directo, sin intento HLS.
+      this._playIframe(media.url || media.referer);
+
     } else if (media.type === 'youtube') {
       this.currentType = 'youtube';
       this._showContainer('youtube');
