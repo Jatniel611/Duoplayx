@@ -95,10 +95,29 @@ window.VimeoExtractor = (function () {
     return master;
   }
 
+  // Comprueba si el CDN acepta ESTE navegador con el token extraído (el CDN
+  // sirve ACAO:* → fetch CORS directo). 200 = puede reproducir directo; 403 =
+  // token honeypot (nube) → el navegador debe caer a iframe del embed.
+  async function checkMaster(masterUrl) {
+    try {
+      const res = await fetch(masterUrl, { mode: 'cors', cache: 'no-store' });
+      if (res.ok) {
+        const text = await res.text();
+        return text.indexOf('#EXTM3U') === 0;
+      }
+      console.warn('[Vimeo] checkMaster:', res.status);
+      return false;
+    } catch (err) {
+      console.warn('[Vimeo] checkMaster error:', err.message);
+      return false;
+    }
+  }
+
   return {
     unpackDeanEdwardsJs: unpackDeanEdwardsJs,
     findM3u8Url: findM3u8Url,
     fetchEmbedHtml: fetchEmbedHtml,
-    extractVimeos: extractVimeos
+    extractVimeos: extractVimeos,
+    checkMaster: checkMaster
   };
 })();

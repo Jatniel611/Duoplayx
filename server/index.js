@@ -175,8 +175,11 @@ app.get('/api/gdrive-stream/:fileId', async (req, res) => {
   const fileId = req.params.fileId;
   if (!fileId) return res.status(400).json({ error: 'File ID required' });
 
-  // En el servidor remoto en la nube (Render), redirigir directamente para 0% consumo de ancho de banda
-  if (!isLocalhostRequest(req)) {
+  // En la nube (Render), redirigir directo para 0% consumo de banda,
+  // SALVO que el cliente pida ?force=1 (cuando el directo falló: el proxy
+  // completo resuelve redirects/cookies/token confirm y SÍ reproduce).
+  const forceProxy = req.query.force === '1';
+  if (!isLocalhostRequest(req) && !forceProxy) {
     const directUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
     return res.redirect(302, directUrl);
   }

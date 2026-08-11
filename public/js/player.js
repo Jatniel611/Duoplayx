@@ -260,17 +260,45 @@ class PlayerManager {
       const directUrl = (media.url && !media.url.startsWith('/api/')) 
         ? media.url 
         : `https://drive.usercontent.google.com/download?id=${media.fileId}&export=download&confirm=t`;
-        
+
+      const proxyUrl = (media.fileId && window.socketManager && window.socketManager.resolveMediaUrl)
+        ? window.socketManager.resolveMediaUrl(`/api/gdrive-stream/${media.fileId}?force=1`)
+        : null;
+
+      const self = this;
+      let driveFallbackUsed = false;
+      const fallbackToProxy = () => {
+        if (!proxyUrl || driveFallbackUsed) return;
+        driveFallbackUsed = true;
+        console.warn('[GDrive] Directo rechazado (cookies/confirm); fallback al proxy del server:', proxyUrl);
+        if (window.appUI) window.appUI.showToast('⚙️ Google Drive requiere proxy temporal (ancho de banda del server).', 'warning');
+        self.gdriveVideo.src = proxyUrl;
+        self.gdriveVideo.load();
+        if (autoPlay) self.gdriveVideo.play().catch(err => console.log('[GDrive] Autoplay proxy diferido:', err.message));
+      };
+      const removeHandlers = () => {
+        self.gdriveVideo.removeEventListener('error', fallbackToProxy);
+        window.clearTimeout(fallbackToProxy._timer);
+      };
+
+      // Si el directo no carga en ~8s o da error → proxy del servidor (resuelve redirects/cookies)
+      fallbackToProxy._timer = window.setTimeout(() => {
+        if (self.gdriveVideo.readyState <= 1) fallbackToProxy();
+      }, 8000);
+
       console.log(`[GDrive] Cargando película de Drive directo: ${directUrl}`);
 
       if (window.appUI) window.appUI.showToast('🔄 Cargando película de Google Drive...', 'info');
 
-      this.gdriveVideo.src = directUrl;
-      this.gdriveVideo.load();
+      this.gdriveVideo.addEventListener('error', fallbackToProxy);
 
       this.gdriveVideo.addEventListener('canplay', () => {
         if (window.appUI) window.appUI.showToast('✅ Película de Drive lista para reproducir 🎬', 'success');
       }, { once: true });
+      this.gdriveVideo.addEventListener('playing', removeHandlers, { once: true });
+
+      this.gdriveVideo.src = directUrl;
+      this.gdriveVideo.load();
 
       if (autoPlay) {
         this.gdriveVideo.play().catch(err => console.log('[GDrive] Autoplay diferido:', err.message));
@@ -284,6 +312,11 @@ class PlayerManager {
       this._showContainer('mp4');
       this.mp4Video.removeAttribute('crossorigin');
       this.mp4Video.removeAttribute('referrerpolicy');
+      // Si el server lo reescribió al proxy (http:// en página https → mixed
+      // content obliga a proxear), avisar del consumo de banda.
+      if (typeof media.url === 'string' && media.url.indexOf('/api/stream-proxy') !== -1) {
+        if (window.appUI) window.appUI.showToast('⚠️ Fuente http: se proxeará por el server (gasta ancho de banda).', 'warning');
+      }
       this.mp4Video.src = media.url;
       this.mp4Video.load();
       if (autoPlay) {
@@ -307,6 +340,20 @@ class PlayerManager {
       const master = await window.VimeoExtractor.extractVimeos(embedUrl);
       if (this._vimeoEmbedRequest !== embedUrl) return; // cambiaron de media mientras tanto
       console.log(`[Vimeo] Master extraído en navegador (token para este UA): ${master.substring(0, 100)}`);
+
+      // Pre-flight determinista: si el CDN rechaza esta sesión (en la nube el
+      // token se firma para IP datacenter → honeypot 403), ir a iframe YA en
+      // lugar de esperar 2 fallos de red de hls.js. En local/EXE el token es
+      // válido → hls.js directo con sync y 0% banda del server.
+      const ok = await window.VimeoExtractor.checkMaster(master);
+      if (this._vimeoEmbedRequest !== embedUrl) return;
+      if (!ok) {
+        console.warn('[Vimeo] El CDN rechaza esta sesión; iframe del embed (0% banda del server).');
+        if (window.appUI) window.appUI.showToast('🎬 Modo compatible: reproductor original del sitio (sin sync).', 'warning');
+        this._playIframe(embedUrl);
+        return;
+      }
+
       this._playHLSStream(master, embedUrl, autoPlay);
     } catch (err) {
       console.warn('[Vimeo] Extracción HLS falló; fallback a iframe del embed:', err.message);
