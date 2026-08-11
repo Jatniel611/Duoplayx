@@ -333,8 +333,12 @@ app.get('/api/hls-proxy', async (req, res) => {
   }
 
   try {
+    // Clave: los CDN token-protegidos (vimeos/vimeus) firman el token con el UA
+    // del que pidió el embed. hls-proxy DEBE reenviar el UA del cliente, no uno
+    // fijo, o el CDN responde 403 (token firmado para otro UA).
+    const clientUA = req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
     const reqHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'User-Agent': clientUA,
       'Referer': referer
     };
     if (req.headers.range) reqHeaders['Range'] = req.headers.range;
