@@ -410,6 +410,24 @@ class PlayerManager {
       this.hlsInstance.loadSource(targetSource);
       this.hlsInstance.attachMedia(this.mp4Video);
 
+      // Playlist sin #EXT-X-ENDLIST → hls.js la trata como LIVE (duración Infinity,
+      // sin seek). Los CDN de embeds sirven películas así: forzar VOD si el nivel
+      // tiene duración total conocida para que el slider muestre el tiempo y el
+      // Host pueda adelantar/retroceder.
+      this.hlsInstance.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+        try {
+          if (data && data.details && data.details.live) {
+            const total = data.details.totalduration;
+            if (isFinite(total) && total > 0) {
+              console.log(`[HLS] Playlist sin ENDLIST → VOD forzado (duración ${Math.round(total)}s)`);
+              data.details.live = false;
+              data.details.ended = true;
+              if (this.hlsInstance) this.hlsInstance.liveSyncPosition = null;
+            }
+          }
+        } catch (e) {}
+      });
+
       this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
         console.log('✅ Manifiesto HLS cargado con éxito. Niveles de calidad:', data.levels);
         
@@ -655,7 +673,22 @@ class PlayerManager {
       try { return this.ytPlayer.getDuration() || 0; } catch(e) { return 0; }
     }
     const vid = this._activeVideo();
-    return vid ? (isNaN(vid.duration) ? 0 : (vid.duration || 0)) : 0;
+    if (!vid) return 0;
+    let dur = vid.duration;
+    // Playlists HLS sin #EXT-X-ENDLIST se tratan como LIVE → duration = Infinity/NaN
+    // y el slider/seek quedan rotos. hls.js conoce la duración real del contenido
+    // en level.details.totalduration (suma de #EXTINF) — la usamos como fallback.
+    if (!isFinite(dur) || isNaN(dur) || dur <= 0) {
+      try {
+        if (this.hlsInstance && this.hlsInstance.levels && this.hlsInstance.levels.length) {
+          const lvl = this.hlsInstance.levels[this.hlsInstance.currentLevel] || this.hlsInstance.levels[this.hlsInstance.levels.length - 1];
+          if (lvl && lvl.details && isFinite(lvl.details.totalduration) && lvl.details.totalduration > 0) {
+            dur = lvl.details.totalduration;
+          }
+        }
+      } catch (e) {}
+    }
+    return (isNaN(dur) || dur < 0) ? 0 : dur;
   }
 
   // ─── Tracker de progreso 500ms ─────────────────────────────────────────────

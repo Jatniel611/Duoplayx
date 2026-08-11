@@ -1664,11 +1664,15 @@ class AppUI {
   }
 
   updateSliderProgress(currentTime, duration) {
-    if (duration > 0) {
-      this.timeProgressSlider.max = duration;
-      this.timeProgressSlider.value = currentTime;
-      this.timeCurrent.innerText = this.formatTime(currentTime);
-      this.timeDuration.innerText = this.formatTime(duration);
+    if (this.timeCurrent) this.timeCurrent.innerText = this.formatTime(currentTime);
+    if (duration > 0 && isFinite(duration)) {
+      if (this.timeProgressSlider) {
+        this.timeProgressSlider.max = duration;
+        this.timeProgressSlider.value = currentTime;
+      }
+      if (this.timeDuration) this.timeDuration.innerText = this.formatTime(duration);
+    } else {
+      if (this.timeDuration) this.timeDuration.innerText = 'LIVE';
     }
   }
 
