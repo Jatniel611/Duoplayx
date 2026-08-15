@@ -386,7 +386,7 @@ class AppUI {
         }
 
         const rawUrl = this.inputMediaUrl ? this.inputMediaUrl.value.trim() : '';
-        if (!rawUrl) return this.showToast('Ingresa una URL válida de YouTube, Google Drive, Pixeldrain o Servidor Embed.', 'warning');
+        if (!rawUrl) return this.showToast('Ingresa una URL válida de YouTube, Google Drive, Pixeldrain o MP4 directo.', 'warning');
 
         // 1. Detección instantánea sin delay ni peticiones de red para YouTube, Drive, Pixeldrain y MP4 directos
         const fastMedia = this.quickParseMedia(rawUrl);
@@ -397,7 +397,7 @@ class AppUI {
           return;
         }
 
-        // 2. Extracción de servidores Embed (vimeus.com, vimeos.net, etc.) vía backend
+        // 2. Resolución de fuente vía backend (YouTube / MP4 directo / Drive directo)
         this.showToast('🔍 Extrayendo fuente de película del servidor...', 'info');
 
         const controller = new AbortController();
@@ -411,6 +411,14 @@ class AppUI {
             signal: controller.signal
           });
           clearTimeout(timeoutId);
+
+          // Formato no soportado (422): mostrar el mensaje del server y NO
+          // intentar reproducir la URL como MP4 directo (sería un reproductor roto).
+          if (res.status === 422) {
+            let msg = 'Formato no soportado.';
+            try { const e = await res.json(); if (e && e.error) msg = e.error; } catch (e2) {}
+            return this.showToast(msg, 'danger');
+          }
 
           if (!res.ok) {
             throw new Error(`HTTP Error ${res.status}`);
@@ -907,28 +915,21 @@ class AppUI {
       return { type: 'youtube', url: url, videoId: ytMatch[1] };
     }
 
-    // Comprobar si tenemos servidor local activo (App de Windows en localhost:3000)
-    const isLocalServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
     // 2. Google Drive (Formatos /file/d/ID, /open?id=ID, /uc?id=ID, etc.)
     const gdriveMatch = url.match(/(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?.*id=)([a-zA-Z0-9_-]{20,})/i) ||
                         url.match(/google\.com\/.*(?:file\/d\/|[?&]id=)([a-zA-Z0-9_-]{20,})/i);
     if (gdriveMatch && gdriveMatch[1]) {
       const fileId = gdriveMatch[1];
-      const streamUrl = isLocalServer 
-        ? `http://localhost:3000/api/gdrive-stream/${fileId}`
-        : `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
-      return { type: 'gdrive', url: streamUrl, fileId: fileId, isGDrive: true };
+      // Solo enlace de descarga directa de Google (drive.usercontent.google.com con
+      // confirm=t). Si el archivo no reproduce, no hay fallback de proxy (0% banda).
+      return { type: 'gdrive', url: `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`, fileId: fileId, isGDrive: true };
     }
 
     // 3. Pixeldrain (Formatos /u/ID, /api/file/ID, /l/ID, etc.)
     const pixeldrainMatch = url.match(/pixeldrain\.com\/(?:u|api\/file|l)\/([a-zA-Z0-9_-]+)/i);
     if (pixeldrainMatch && pixeldrainMatch[1]) {
       const fileId = pixeldrainMatch[1];
-      const streamUrl = isLocalServer
-        ? `http://localhost:3000/api/pixeldrain-stream/${fileId}`
-        : `https://pixeldrain.com/api/file/${fileId}`;
-      return { type: 'mp4', url: streamUrl };
+      return { type: 'mp4', url: `https://pixeldrain.com/api/file/${fileId}` };
     }
 
     // 4. Dropbox (Convertir enlaces compartidos a MP4 directo con ?raw=1)

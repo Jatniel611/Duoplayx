@@ -320,8 +320,6 @@ class RoomManager {
 
     let mediaTypeName = 'Video MP4';
     if (parsedMedia.type === 'youtube') mediaTypeName = 'YouTube';
-    else if (parsedMedia.type === 'vimeo') mediaTypeName = 'Servidor de video (Vimeos) 🎬';
-    else if (parsedMedia.type === 'iframe') mediaTypeName = 'Reproductor del sitio (iframe)';
     else if (parsedMedia.isGDrive) mediaTypeName = 'Google Drive Video 📁';
 
     const sysMessage = {

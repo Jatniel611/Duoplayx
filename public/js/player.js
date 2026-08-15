@@ -18,7 +18,6 @@ class PlayerManager {
 
     this.mp4Video    = document.getElementById('html5VideoPlayer');
     this.gdriveVideo = document.getElementById('gdriveVideoPlayer');
-    this.iframeVideo  = document.getElementById('iframeVideoPlayer');
     this.loadingOverlay = document.getElementById('videoLoadingOverlay');
     this.loadingText    = document.getElementById('videoLoadingText');
 
@@ -108,7 +107,7 @@ class PlayerManager {
 
   // ─── Mostrar/ocultar contenedores ─────────────────────────────────────────
   _showContainer(which) {
-    ['youtubePlayerContainer', 'mp4PlayerContainer', 'gdrivePlayerContainer', 'iframePlayerContainer', 'emptyMediaOverlay']
+    ['youtubePlayerContainer', 'mp4PlayerContainer', 'gdrivePlayerContainer', 'emptyMediaOverlay']
       .forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
@@ -117,7 +116,6 @@ class PlayerManager {
       youtube: 'youtubePlayerContainer',
       mp4    : 'mp4PlayerContainer',
       gdrive : 'gdrivePlayerContainer',
-      iframe : 'iframePlayerContainer',
       empty  : 'emptyMediaOverlay'
     };
     const t = document.getElementById(map[which]);
@@ -222,7 +220,6 @@ class PlayerManager {
     }
     if (this.mp4Video)    { this.mp4Video.pause();    this.mp4Video.src = ''; }
     if (this.gdriveVideo) { this.gdriveVideo.pause(); this.gdriveVideo.src = ''; }
-    if (this.iframeVideo) { this.iframeVideo.src = ''; }
     if (this.ytPlayer && this.isYTReady && typeof this.ytPlayer.pauseVideo === 'function') {
       this.ytPlayer.pauseVideo();
     }
@@ -231,18 +228,6 @@ class PlayerManager {
       this.currentType = 'hls';
       this._showContainer('mp4');
       this._playHLSStream(media.url, media.referer, autoPlay);
-
-    } else if (media.type === 'vimeo') {
-      // Vimeus/Vimeos: extraer el HLS EN ESTE navegador (el token del CDN se
-      // firma con el User-Agent de quien pide el embed; así reproduce directo
-      // CDN → navegador: 0% banda del server, video limpio y sincronizable).
-      this.currentType = 'vimeo';
-      this._showContainer('mp4');
-      this._playVimeoEmbed(media.embedUrl || media.url || media.referer, autoPlay);
-
-    } else if (media.type === 'iframe') {
-      // Último recurso: reproducir embed original en iframe (sin sync).
-      this._playIframe(media.url || media.referer);
 
     } else if (media.type === 'youtube') {
       this.currentType = 'youtube';
@@ -256,46 +241,19 @@ class PlayerManager {
       this.currentType = 'gdrive';
       this._showContainer('gdrive');
 
-      // Intentar transmisión directa desde Google Drive (0% ancho de banda del servidor)
-      const directUrl = (media.url && !media.url.startsWith('/api/')) 
-        ? media.url 
-        : `https://drive.usercontent.google.com/download?id=${media.fileId}&export=download&confirm=t`;
-
-      const proxyUrl = (media.fileId && window.socketManager && window.socketManager.resolveMediaUrl)
-        ? window.socketManager.resolveMediaUrl(`/api/gdrive-stream/${media.fileId}?force=1`)
-        : null;
-
-      const self = this;
-      let driveFallbackUsed = false;
-      const fallbackToProxy = () => {
-        if (!proxyUrl || driveFallbackUsed) return;
-        driveFallbackUsed = true;
-        console.warn('[GDrive] Directo rechazado (cookies/confirm); fallback al proxy del server:', proxyUrl);
-        if (window.appUI) window.appUI.showToast('⚙️ Google Drive requiere proxy temporal (ancho de banda del server).', 'warning');
-        self.gdriveVideo.src = proxyUrl;
-        self.gdriveVideo.load();
-        if (autoPlay) self.gdriveVideo.play().catch(err => console.log('[GDrive] Autoplay proxy diferido:', err.message));
-      };
-      const removeHandlers = () => {
-        self.gdriveVideo.removeEventListener('error', fallbackToProxy);
-        window.clearTimeout(fallbackToProxy._timer);
-      };
-
-      // Si el directo no carga en ~8s o da error → proxy del servidor (resuelve redirects/cookies)
-      fallbackToProxy._timer = window.setTimeout(() => {
-        if (self.gdriveVideo.readyState <= 1) fallbackToProxy();
-      }, 8000);
+      // Transmisión directa desde Google Drive (0% ancho de banda del servidor).
+      // Solo los enlaces de descarga directa que funcionan (drive.usercontent con
+      // confirm=t) se reproducen; sin proxy de fallback.
+      const directUrl = media.url
+        || `https://drive.usercontent.google.com/download?id=${media.fileId}&export=download&confirm=t`;
 
       console.log(`[GDrive] Cargando película de Drive directo: ${directUrl}`);
 
       if (window.appUI) window.appUI.showToast('🔄 Cargando película de Google Drive...', 'info');
 
-      this.gdriveVideo.addEventListener('error', fallbackToProxy);
-
       this.gdriveVideo.addEventListener('canplay', () => {
         if (window.appUI) window.appUI.showToast('✅ Película de Drive lista para reproducir 🎬', 'success');
       }, { once: true });
-      this.gdriveVideo.addEventListener('playing', removeHandlers, { once: true });
 
       this.gdriveVideo.src = directUrl;
       this.gdriveVideo.load();
@@ -329,58 +287,6 @@ class PlayerManager {
     this.setLocalVolume(this.localVolume);
   }
 
-  // ─── Extraer y reproducir HLS de embeds vimeus/vimeos ─────────────────────
-  // Cada navegador extrae su propio master (token firmado para su UA) vía
-  // /api/embed-html + VimeoExtractor, y reproduce DIRECTO del CDN. Si la
-  // extracción o el CDN fallan → iframe del embed (último recurso).
-  async _playVimeoEmbed(embedUrl, autoPlay = true) {
-    this._vimeoEmbedRequest = embedUrl;
-    try {
-      if (window.appUI) window.appUI.showToast('🔍 Extrayendo HLS limpio del servidor de video...', 'info');
-      const master = await window.VimeoExtractor.extractVimeos(embedUrl);
-      if (this._vimeoEmbedRequest !== embedUrl) return; // cambiaron de media mientras tanto
-      console.log(`[Vimeo] Master extraído en navegador (token para este UA): ${master.substring(0, 100)}`);
-
-      // Pre-flight determinista: si el CDN rechaza esta sesión (en la nube el
-      // token se firma para IP datacenter → honeypot 403), ir a iframe YA en
-      // lugar de esperar 2 fallos de red de hls.js. En local/EXE el token es
-      // válido → hls.js directo con sync y 0% banda del server.
-      const ok = await window.VimeoExtractor.checkMaster(master);
-      if (this._vimeoEmbedRequest !== embedUrl) return;
-      if (!ok) {
-        console.warn('[Vimeo] El CDN rechaza esta sesión; iframe del embed (0% banda del server).');
-        if (window.appUI) window.appUI.showToast('🎬 Modo compatible: reproductor original del sitio (sin sync).', 'warning');
-        this._playIframe(embedUrl);
-        return;
-      }
-
-      this._playHLSStream(master, embedUrl, autoPlay);
-    } catch (err) {
-      console.warn('[Vimeo] Extracción HLS falló; fallback a iframe del embed:', err.message);
-      this._playIframe(embedUrl);
-    }
-  }
-
-  // ─── Reproducir embed original en iframe (fallback vimeus/vimeos) ────────
-  // Los CDN de estos embeds (s13.vimeos.net, p4.vimeos.zip, etc.) bloquean las
-  // peticiones que no vienen del navegador real con su sesión, así que si el
-  // stream HLS directo falla, se carga la página embed original (que sí crea
-  // su propia sesión y reproduce). Sin consumo de banda del servidor.
-  _playIframe(embedUrl) {
-    console.warn('[Player] Reproduciendo embed original en iframe:', embedUrl);
-    this.currentType = 'iframe';
-    this._showContainer('iframe');
-    if (this.hlsInstance) {
-      this.hlsInstance.destroy();
-      this.hlsInstance = null;
-    }
-    if (this.iframeVideo) {
-      this.iframeVideo.src = embedUrl;
-    }
-    if (window.appUI) window.appUI.showToast('🎬 Reproduciendo reproductor original del sitio...', 'info');
-    this.showLoadingOverlay(false);
-  }
-
   _playHLSStream(hlsUrl, referer, autoPlay = true) {
     // Usar la fuente HLS directa del cliente por defecto (0% ancho de banda del servidor)
     const targetSource = hlsUrl;
@@ -392,7 +298,6 @@ class PlayerManager {
       if (this.hlsInstance) {
         this.hlsInstance.destroy();
       }
-      let networkFails = 0;
       this.hlsInstance = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
@@ -452,14 +357,6 @@ class PlayerManager {
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              networkFails++;
-              // Si el CDN bloquea el stream (403/sesión) y tenemos el embed original,
-              // fallback automático a iframe (el embed crea su propia sesión).
-              if (networkFails >= 2 && referer && /^https?:\/\//i.test(referer) && !referer.includes('.m3u8')) {
-                console.warn('[HLS] CDN bloqueó el stream; fallback a iframe del embed:', referer);
-                this._playIframe(referer);
-                return;
-              }
               console.warn('[HLS Network Error] Intentando recuperar red...');
               this.hlsInstance.startLoad();
               break;
